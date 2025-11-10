@@ -1,0 +1,1537 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KiMi • Portfolio</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💻</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-activity-feed@latest/dist/github-activity.min.css">
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --sidebar: #0f0f0f;
+      --sidebar-width: 260px;
+      --content-bg: #0f0f0f;
+      --section-bg: #141414;
+      --profile-border: #2a2a2a;
+      --border: #1a1a1a;
+      --text: #ffffff;
+      --text-dim: #a0a0a0;
+      --accent: #1a1a1a;
+      --accent-light: #252525;
+      --accent-contrast: #fff;
+      --link: #7a7a7a;
+      --primary: #4f46e5;
+      --primary-light: #6366f1;
+      --sc-primary: #ff5252;
+      --sc-secondary: #7c4dff;
+      --font-sans: 'Inter', sans-serif;
+      --shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      --shadow-sm: 0 4px 20px rgba(0, 0, 0, 0.3);
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      --radius: 20px;
+      --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --gradient-alt: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+    }
+    
+    html {
+      scroll-behavior: smooth;
+      height: 100%;
+    }
+    
+    html, body {
+      height: 100%;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      transition: background 0.3s;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body { 
+      display: flex; 
+      justify-content: center;
+      background-image: 
+        radial-gradient(circle at 20% 50%, rgba(79, 70, 229, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(168, 85, 247, 0.1) 0%, transparent 50%);
+    }
+    
+    .container {
+      display: flex; 
+      width: clamp(320px, 98vw, 2400px);
+      max-width: 98vw;
+      height: 98vh;
+      box-shadow: var(--shadow);
+      background: var(--content-bg);
+      border-radius: var(--radius);
+      margin: 1vh auto;
+      border: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+      background: rgba(15, 15, 15, 0.95);
+      overflow: hidden;
+    }
+    
+    .sidebar {
+      width: var(--sidebar-width);
+      min-width: var(--sidebar-width);
+      background: linear-gradient(180deg, var(--sidebar) 0%, #0a0a0a 100%);
+      border-top-left-radius: var(--radius);
+      border-bottom-left-radius: var(--radius);
+      border-right: 1px solid var(--border);
+      padding: 30px 20px 30px 20px;
+      display: flex; 
+      flex-direction: column; 
+      align-items: center;
+      gap: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .sidebar::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent);
+      opacity: 0.5;
+    }
+    
+    .profile-pic-container {
+      display: flex; 
+      justify-content: center; 
+      align-items: center;
+      position: relative;
+    }
+    
+    .profile-pic {
+      width: 140px; 
+      height: 140px;
+      border-radius: 50%;
+      border: 3px solid var(--profile-border);
+      object-fit: cover;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      background: var(--section-bg);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    .profile-pic:hover {
+      transform: scale(1.05);
+      box-shadow: 0 12px 40px rgba(79, 70, 229, 0.3);
+    }
+    
+    .sidebar h2 {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+      user-select: none;
+      opacity: 0.8;
+    }
+    
+    .nav-links {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .nav-links a {
+      display: flex; 
+      align-items: center; 
+      gap: 10px;
+      padding: 12px 15px;
+      border-radius: 10px;
+      color: var(--text-dim);
+      text-decoration: none; 
+      font-size: 14px; 
+      font-weight: 500;
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .nav-links a::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      width: 3px;
+      background: var(--primary);
+      transform: translateX(-100%);
+      transition: transform 0.3s;
+    }
+    
+    .nav-links a:hover, .nav-links a:focus-visible {
+      background: var(--accent-light);
+      color: var(--text);
+      transform: translateX(5px);
+    }
+    
+    .nav-links a:hover::before, .nav-links a:focus-visible::before {
+      transform: translateX(0);
+    }
+    
+    main.content {
+      flex: 1;
+      padding: 20px 30px 20px 30px;
+      max-width: 100%;
+      margin: 0;
+      background: transparent;
+      border-radius: 0 var(--radius) var(--radius) 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    header {
+      margin-bottom: 15px;
+      position: relative;
+    }
+    
+    header h1 {
+      font-size: 2.8rem; 
+      font-weight: 900;
+      color: var(--text);
+      background: linear-gradient(135deg, #ffffff 0%, #a0a0a0 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 15px;
+      letter-spacing: -3px; 
+      line-height: 1;
+      position: relative;
+    }
+    
+    header h1::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 0;
+      width: 60px;
+      height: 3px;
+      background: var(--gradient);
+      border-radius: 2px;
+    }
+    
+    .section {
+      position: relative;
+      margin-bottom: 15px;
+    }
+    
+    .section h2 {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 15px;
+      letter-spacing: -0.5px;
+      position: relative;
+      display: inline-block;
+    }
+    
+    .section h2::after {
+      content: '';
+      position: absolute;
+      bottom: -6px;
+      left: 0;
+      width: 30px;
+      height: 2px;
+      background: var(--primary);
+      border-radius: 2px;
+    }
+    
+    /* Discord presence embed */
+    .discord-embed {
+      display: flex;
+      align-items: flex-start;
+      background: linear-gradient(135deg, var(--section-bg) 0%, var(--accent-light) 100%);
+      border-radius: 16px;
+      padding: 18px 20px;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border);
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .discord-embed::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent);
+      opacity: 0.3;
+    }
+    
+    .discord-embed:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      border-color: var(--primary);
+    }
+    
+    .embed-left img {
+      width: 50px;
+      height: 50px;
+      border-radius: 12px;
+      object-fit: cover;
+      background: var(--accent);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      margin-right: 15px;
+      transition: transform 0.3s;
+    }
+    
+    .embed-left img:hover {
+      transform: scale(1.1) rotate(3deg);
+    }
+    
+    .embed-main {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      width: 100%;
+    }
+    
+    .embed-title {
+      font-weight: 700;
+      font-size: 1.1em;
+      letter-spacing: 0.02em;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .status-dot {
+      display: inline-block;
+      width: 10px; 
+      height: 10px; 
+      border-radius: 50%;
+      margin-bottom: 2px; 
+      margin-right: 3px;
+      border: 2px solid var(--bg);
+      vertical-align: middle;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    
+    .status-dot.online { background: #3ba55d; box-shadow: 0 0 10px #3ba55d; }
+    .status-dot.idle { background: #faa81a; box-shadow: 0 0 10px #faa81a; }
+    .status-dot.dnd { background: #ed4245; box-shadow: 0 0 10px #ed4245; }
+    .status-dot.offline { background: #747f8d; }
+    
+    .text-dim {
+      color: var(--text-dim);
+      font-size: 0.85em;
+      font-weight: 400;
+      margin-top: 5px;
+      letter-spacing: 0.01em;
+    }
+    
+    .embed-activity {
+      margin-top: 4px;
+      font-size: 0.9em;
+      font-weight: 400;
+      color: var(--text-dim);
+    }
+    
+    /* About section compact */
+    .about-content {
+      color: var(--text-dim);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+    
+    /* Layout pour aligner Projets et Activité GitHub */
+    .projects-activity-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: clamp(15px, 2vw, 20px);
+      margin-bottom: 15px;
+    }
+    
+    /* Projets UI style GitHub */
+    .project-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    
+    .project-card {
+      display: flex;
+      align-items: center;
+      background: linear-gradient(135deg, var(--section-bg) 0%, var(--accent-light) 100%);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      padding: 15px 18px;
+      text-decoration: none;
+      color: var(--text);
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .project-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--gradient);
+      transform: scaleX(0);
+      transition: transform 0.3s;
+    }
+    
+    .project-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      border-color: var(--primary);
+    }
+    
+    .project-card:hover::before {
+      transform: scaleX(1);
+    }
+    
+    .pc-icon { 
+      font-size: 1.5em; 
+      margin-right: 12px;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+    }
+    
+    .pc-content {
+      flex: 1;
+    }
+    
+    .pc-title {
+      display: flex; 
+      align-items: center; 
+      gap: 8px;
+      font-size: 1rem; 
+      font-weight: 700; 
+      margin-bottom: 4px;
+    }
+    
+    .pc-name { 
+      font-weight: 700; 
+      background: var(--gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .pc-badge {
+      font-size: 0.75em;
+      background: var(--accent);
+      color: var(--text-dim);
+      border-radius: 6px;
+      padding: 2px 8px;
+      margin-left: 8px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      border: 1px solid var(--border);
+    }
+    
+    .pc-desc {
+      font-size: 0.85em;
+      font-weight: 400;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    
+    .pc-meta {
+      display: flex; 
+      align-items: center; 
+      gap: 12px; 
+      font-size: 0.8em;
+    }
+    
+    .pc-dot {
+      display:inline-block;
+      vertical-align: middle;
+      margin-right:4px;
+      width:8px; 
+      height:8px;
+      border-radius:50%;
+      box-shadow: 0 0 4px currentColor;
+    }
+    
+    .pc-blue { background:#4f8cff; }
+    .pc-yellow { background:#ffd600; }
+    .pc-stars { 
+      color:#ffd700; 
+      font-size:0.9em; 
+      filter: drop-shadow(0 2px 4px rgba(255, 215, 0, 0.3));
+    }
+    .pc-lang { 
+      color:var(--text-dim); 
+      font-weight:500;
+    }
+    
+    /* GitHub Activity Compact */
+    .github-activity-compact {
+      background: linear-gradient(135deg, var(--section-bg) 0%, var(--accent-light) 100%);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      padding: 20px;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .github-activity-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    
+    .github-activity-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+    }
+    
+    .github-activity-title::after {
+      content: '';
+      position: absolute;
+      bottom: -6px;
+      left: 0;
+      width: 30px;
+      height: 2px;
+      background: var(--primary);
+      border-radius: 2px;
+    }
+    
+    .github-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 15px;
+    }
+    
+    .github-stat-card {
+      background: var(--accent);
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+      border: 1px solid var(--border);
+      transition: var(--transition);
+    }
+    
+    .github-stat-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--primary);
+    }
+    
+    .github-stat-value {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+    
+    .github-stat-label {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .github-activity-details {
+      background: var(--accent);
+      border-radius: 10px;
+      padding: 15px;
+      border: 1px solid var(--border);
+      flex: 1;
+      overflow: hidden;
+    }
+    
+    .activity-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .activity-table th {
+      text-align: left;
+      padding: 8px 12px;
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .activity-table td {
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 0.9rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .activity-table tr:last-child td {
+      border-bottom: none;
+    }
+    
+    .activity-table tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    
+    .repo-name {
+      font-weight: 600;
+      color: var(--primary);
+      text-decoration: none;
+      transition: var(--transition);
+    }
+    
+    .repo-name:hover {
+      color: var(--primary-light);
+      text-decoration: underline;
+    }
+    
+    .commit-message {
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .commit-time {
+      color: var(--text-dim);
+      font-size: 0.8rem;
+    }
+    
+    /* Sens Critique Section */
+    .senscritique-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: clamp(15px, 2vw, 20px);
+      margin-top: 0;
+      margin-bottom: 15px;
+    }
+    
+    .sc-profile-card {
+      background: linear-gradient(135deg, var(--section-bg) 0%, var(--accent-light) 100%);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      height: 100%;
+    }
+    
+    .sc-header {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 10px;
+    }
+    
+    .sc-logo {
+      width: 80px;
+      height: 80px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .sc-logo-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 15px rgba(255, 82, 82, 0.3));
+    }
+    
+    .sc-user-info h3 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 5px;
+      background: linear-gradient(135deg, var(--sc-primary) 0%, var(--sc-secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .sc-user-info p {
+      color: var(--text-dim);
+      font-size: 0.9rem;
+    }
+    
+    .sc-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    
+    .sc-stat-card {
+      background: var(--accent);
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+      border: 1px solid var(--border);
+      transition: var(--transition);
+    }
+    
+    .sc-stat-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--sc-primary);
+    }
+    
+    .sc-stat-value {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--sc-primary);
+      margin-bottom: 4px;
+    }
+    
+    .sc-stat-label {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .sc-favorites {
+      margin-top: 15px;
+      position: relative;
+    }
+    
+    .sc-favorites-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .sc-slider-arrow {
+      background: var(--sc-primary);
+      border: none;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: var(--transition);
+      flex-shrink: 0;
+      color: white;
+      font-size: 16px;
+      box-shadow: 0 2px 8px rgba(255, 82, 82, 0.3);
+    }
+    
+    .sc-slider-arrow:hover {
+      background: var(--sc-secondary);
+      transform: scale(1.1);
+    }
+    
+    .sc-slider-arrow:active {
+      transform: scale(0.95);
+    }
+    
+    .sc-slider-arrow.disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    
+    .sc-favorites-slider {
+      display: flex;
+      gap: 12px;
+      overflow-x: hidden;
+      overflow-y: hidden;
+      padding: 10px 5px;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+      flex: 1;
+    }
+    
+    .sc-favorites-slider::-webkit-scrollbar {
+      height: 6px;
+    }
+    
+    .sc-favorites-slider::-webkit-scrollbar-track {
+      background: var(--accent);
+      border-radius: 3px;
+    }
+    
+    .sc-favorites-slider::-webkit-scrollbar-thumb {
+      background: var(--sc-primary);
+      border-radius: 3px;
+    }
+    
+    .sc-favorite-item {
+      flex-shrink: 0;
+      width: 100px;
+      cursor: pointer;
+      transition: var(--transition);
+      position: relative;
+    }
+    
+    .sc-favorite-item:hover {
+      transform: translateY(-5px);
+    }
+    
+    .sc-favorite-poster {
+      width: 100px;
+      height: 140px;
+      border-radius: 8px;
+      object-fit: cover;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      border: 2px solid var(--border);
+      transition: var(--transition);
+    }
+    
+    .sc-favorite-item:hover .sc-favorite-poster {
+      border-color: var(--sc-primary);
+      box-shadow: 0 6px 20px rgba(255, 82, 82, 0.4);
+    }
+    
+    .sc-favorite-title {
+      margin-top: 6px;
+      font-size: 0.75rem;
+      color: var(--text);
+      text-align: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 500;
+    }
+    
+    .sc-recent-reviews {
+      background: linear-gradient(135deg, var(--section-bg) 0%, var(--accent-light) 100%);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      height: 100%;
+    }
+    
+    .sc-review-item {
+      background: var(--accent);
+      border-radius: 10px;
+      padding: 15px;
+      border: 1px solid var(--border);
+      transition: var(--transition);
+    }
+    
+    .sc-review-item:hover {
+      transform: translateY(-2px);
+      border-color: var(--sc-primary);
+    }
+    
+    .sc-review-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    
+    .sc-review-title {
+      font-weight: 700;
+      color: var(--text);
+      font-size: 1rem;
+    }
+    
+    .sc-review-rating {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--sc-primary);
+      font-weight: 700;
+    }
+    
+    .sc-review-comment {
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    
+    .sc-review-date {
+      color: var(--text-dim);
+      font-size: 0.75rem;
+      margin-top: 8px;
+      text-align: right;
+    }
+    
+    .sc-loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 200px;
+      color: var(--text-dim);
+    }
+    
+    .sc-error {
+      background: rgba(255, 82, 82, 0.1);
+      border: 1px solid rgba(255, 82, 82, 0.3);
+      border-radius: 10px;
+      padding: 15px;
+      color: var(--text-dim);
+      text-align: center;
+    }
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: var(--accent);
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: var(--primary);
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--primary-light);
+    }
+    
+    /* Ultra-wide screens */
+    @media (min-width: 2000px) {
+      .container { width: 95vw; max-width: 2400px; }
+      main.content { padding: 40px clamp(40px, 5vw, 80px); }
+      .senscritique-container { gap: 30px; }
+      .projects-activity-container { gap: 30px; }
+    }
+    
+    /* Large desktop */
+    @media (min-width: 1600px) and (max-width: 1999px) {
+      .container { width: 96vw; }
+      main.content { padding: 35px clamp(30px, 4vw, 60px); }
+    }
+    
+    /* Standard desktop */
+    @media (min-width: 1200px) and (max-width: 1599px) {
+      .container { width: 97vw; }
+      main.content { padding: 30px clamp(25px, 3vw, 50px); }
+    }
+    
+    /* Small desktop / Large laptop */
+    @media (min-width: 1100px) and (max-width: 1199px) {
+      .container { width: 98vw; }
+      main.content { padding: 25px clamp(20px, 3vw, 40px); }
+      .senscritique-container { grid-template-columns: 1fr 1fr; }
+    }
+    
+    /* Laptop */
+    @media (max-width: 1099px) {
+      .container { max-width: 100vw; margin: 0; border-radius: 0; height: 100vh; width: 100vw; }
+      main.content { padding: 20px clamp(15px, 3vw, 30px); }
+      .senscritique-container { grid-template-columns: 1fr 1fr; gap: 15px; }
+      .projects-activity-container { gap: 15px; }
+    }
+    
+    /* Tablet landscape */
+    @media (max-width: 900px) {
+      .senscritique-container { grid-template-columns: 1fr; }
+      .projects-activity-container { grid-template-columns: 1fr; }
+      .sc-profile-card, .sc-recent-reviews { height: auto; }
+    }
+    
+    /* Tablet portrait / Mobile landscape */
+    @media (max-width: 800px) {
+      .container { flex-direction: column; height: 100vh; }
+      .sidebar { 
+        min-width: 0; 
+        width: 100%; 
+        border-radius: 0; 
+        border-right: none; 
+        border-bottom: 1px solid var(--border); 
+        flex-direction: row; 
+        gap: 0; 
+        padding: 15px;
+      }
+      .profile-pic-container { margin-bottom: 0;}
+      main.content { padding: 20px 4vw 20px 4vw; }
+      .nav-links { flex-direction: row; gap: 5px; width: auto; }
+      .nav-links a { font-size: 12px; padding: 8px 10px;}
+      .projects-activity-container { 
+        grid-template-columns: 1fr; 
+        margin-top: 40px; 
+      }
+      .github-activity-compact {
+        width: 100%;
+        height: auto;
+        min-height: 333px;
+      }
+      .senscritique-container {
+        grid-template-columns: 1fr;
+      }
+      .profile-pic { width: 100px; height: 100px;}
+      header h1 { font-size: 2.2rem; }
+    }
+    
+    @media (max-width: 540px) {
+      main.content { padding: 15px 3vw 15px 3vw; }
+      .profile-pic { width: 80px; height: 80px;}
+      header h1 { font-size: 1.8rem; }
+      .section h2 { font-size: 1.1rem; }
+      .github-stats-grid { grid-template-columns: 1fr; }
+      .sc-stats { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav class="sidebar" aria-label="Navigation latérale">
+      <div class="profile-pic-container">
+        <img src="https://avatars.githubusercontent.com/u/51194216?v=4" alt="Photo de profil GitHub" class="profile-pic">
+      </div>
+      <h2>Navigation</h2>
+      <div class="nav-links">
+        <a href="#accueil">🏠 Accueil</a>
+        <a href="#senscritique">🎬 Sens Critique</a>
+      </div>
+    </nav>
+    <main class="content">
+      <header id="accueil" tabindex="-1">
+        <h1>KiMi</h1>
+        <div id="discord-presence" class="discord-embed">
+          <div class="embed-left">
+            <img id="discord-avatar" src="https://cdn.discordapp.com/embed/avatars/1.png" alt="Discord Avatar">
+          </div>
+          <div class="embed-main">
+            <div class="embed-title">
+              <span id="discord-username">Chargement...</span>
+              <span id="discord-status" class="status-dot offline"></span>
+              <span id="discord-status-text">Hors ligne</span>
+            </div>
+            <div id="discord-activity" class="embed-activity text-dim">Vérification du statut...</div>
+          </div>
+        </div>
+      </header>
+      
+      <!-- Section Sens Critique -->
+      <section id="senscritique" class="section">
+        <h2>Sens Critique</h2>
+        <div class="senscritique-container">
+          <div class="sc-profile-card">
+            <div class="sc-header">
+              <div class="sc-logo">
+                <img src="https://www.senscritique.com/logo/senscritique.png" alt="Sens Critique Logo" class="sc-logo-img">
+              </div>
+              <div class="sc-user-info">
+                <h3 id="sc-username">KiMi</h3>
+                <p id="sc-bio">Chargement...</p>
+              </div>
+            </div>
+            
+            <div class="sc-stats">
+              <div class="sc-stat-card">
+                <div class="sc-stat-value" id="sc-movies">...</div>
+                <div class="sc-stat-label">Films</div>
+              </div>
+              <div class="sc-stat-card">
+                <div class="sc-stat-value" id="sc-series">...</div>
+                <div class="sc-stat-label">Séries</div>
+              </div>
+              <div class="sc-stat-card">
+                <div class="sc-stat-value" id="sc-reviews">...</div>
+                <div class="sc-stat-label">Avis</div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="sc-recent-reviews">
+            <h3 style="color: var(--text); margin-bottom: 10px;">Avis récents</h3>
+            <div id="sc-reviews-container">
+              <div class="sc-loading">Chargement des avis...</div>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- CONTENEUR POUR ALIGNER PROJETS ET ACTIVITÉ GITHUB -->
+      <div class="projects-activity-container">
+        <section id="projects" class="section">
+          <h2>Projets Github</h2>
+          <div class="project-cards">
+            <a class="project-card" href="https://github.com/UndKiMi/5Ghz_Cleaner" target="_blank">
+              <span class="pc-icon">🛠️</span>
+              <div class="pc-content">
+                <div class="pc-title">
+                  <span class="pc-name">5Ghz_Cleaner</span>
+                  <span class="pc-badge">Public</span>
+                </div>
+                <div class="pc-desc">Optimisez et nettoyez votre installation Windows 11</div>
+                <div class="pc-meta">
+                  <span class="pc-lang"><span class="pc-dot pc-blue"></span>Python</span>
+                  <span class="pc-stars">⭐ 5</span>
+                </div>
+              </div>
+            </a>
+            <a class="project-card" href="https://github.com/UndKiMi/Medal-Bot" target="_blank">
+              <span class="pc-icon">🤖</span>
+              <div class="pc-content">
+                <div class="pc-title">
+                  <span class="pc-name">Medal-Bot</span>
+                  <span class="pc-badge">Public</span>
+                </div>
+                <div class="pc-desc">Bot Discord multifonction pour l'équipe McDonald's</div>
+                <div class="pc-meta">
+                  <span class="pc-lang"><span class="pc-dot pc-blue"></span>Python</span>
+                  <span class="pc-stars">⭐ 1</span>
+                </div>
+              </div>
+            </a>
+            <a class="project-card" href="https://github.com/UndKiMi/K.Ring" target="_blank">
+              <span class="pc-icon">🔔</span>
+              <div class="pc-content">
+                <div class="pc-title">
+                  <span class="pc-name">K.Ring</span>
+                  <span class="pc-badge">Public</span>
+                </div>
+                <div class="pc-desc">Bot Discord privé multifonctions</div>
+                <div class="pc-meta">
+                  <span class="pc-lang"><span class="pc-dot pc-yellow"></span>JavaScript</span>
+                  <span class="pc-stars">⭐ 1</span>
+                </div>
+              </div>
+            </a>
+          </div>
+        </section>
+        
+        <section id="github-activity" class="section">
+          <div class="github-activity-compact">
+            <div class="github-activity-header">
+              <h3 class="github-activity-title">Activité GitHub</h3>
+            </div>
+            
+            <div class="github-stats-grid">
+              <div class="github-stat-card">
+                <div class="github-stat-value" id="total-contributions">...</div>
+                <div class="github-stat-label">Contributions</div>
+              </div>
+              <div class="github-stat-card">
+                <div class="github-stat-value" id="current-streak">...</div>
+                <div class="github-stat-label">Série actuelle</div>
+              </div>
+              <div class="github-stat-card">
+                <div class="github-stat-value" id="total-repos">...</div>
+                <div class="github-stat-label">Dépôts</div>
+              </div>
+              <div class="github-stat-card">
+                <div class="github-stat-value" id="followers">...</div>
+                <div class="github-stat-label">Abonnés</div>
+              </div>
+            </div>
+            
+            <!-- Nouvelle visualisation GitHub -->
+            <div class="github-activity-details">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Dépôt</th>
+                    <th>Dernier commit</th>
+                    <th>Il y a</th>
+                  </tr>
+                </thead>
+                <tbody id="github-activity-tbody">
+                  <tr>
+                    <td colspan="3" style="text-align: center; color: var(--text-dim);">
+                      Chargement de l'activité...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+  
+  <script>
+    // Configuration du backend Discord
+    const BACKEND_URL = "http://localhost:3000";
+    
+    // Fonction pour mettre à jour le statut Discord
+    function updateDiscordPresence() {
+      // Essayer de se connecter au backend
+      fetch(`${BACKEND_URL}/discord-status`)
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          }
+          return res.json();
+        })
+        .then(data => {
+          if (!data.user) {
+            throw new Error("Utilisateur non trouvé");
+          }
+          
+          const user = data.user;
+          
+          // Mettre à jour l'avatar Discord
+          const avatarEl = document.getElementById("discord-avatar");
+          avatarEl.src = user.avatar
+            ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`
+            : `https://cdn.discordapp.com/embed/avatars/1.png`;
+          
+          // Mettre à jour le nom d'utilisateur
+          const username = user.discriminator && user.discriminator !== "0" 
+            ? `${user.username}#${user.discriminator}` 
+            : user.username;
+          
+          document.getElementById("discord-username").textContent = username;
+          
+          // Mettre à jour le statut
+          const statusDot = document.getElementById("discord-status");
+          statusDot.className = "status-dot " + data.status;
+          
+          const statusText = {
+            'online': 'En ligne',
+            'idle': 'Absent',
+            'dnd': 'Ne pas déranger',
+            'offline': 'Hors ligne'
+          };
+          document.getElementById("discord-status-text").textContent = statusText[data.status] || 'Inconnu';
+          
+          // Mettre à jour l'activité
+          const activityEl = document.getElementById("discord-activity");
+          if (data.activities && data.activities.length > 0) {
+            const activity = data.activities[0];
+            let activityText = activity.name;
+            
+            if (activity.details) {
+              activityText += ` - ${activity.details}`;
+            }
+            if (activity.state) {
+              activityText += ` (${activity.state})`;
+            }
+            
+            activityEl.textContent = activityText;
+          } else {
+            activityEl.textContent = "Aucune activité";
+          }
+        })
+        .catch(err => {
+          console.error("Erreur lors de la récupération du statut Discord:", err);
+          
+          // Afficher un statut par défaut si le backend n'est pas disponible
+          document.getElementById("discord-username").textContent = "KiMi";
+          document.getElementById("discord-status").className = "status-dot offline";
+          document.getElementById("discord-status-text").textContent = "Serveur hors ligne";
+          document.getElementById("discord-activity").textContent = "Démarrez le serveur backend pour voir le statut Discord";
+        });
+    }
+    
+    // GitHub API pour récupérer les vraies statistiques
+    let allEvents = [];
+    
+    async function fetchGitHubStats() {
+      try {
+        // Récupérer les informations de l'utilisateur
+        const response = await fetch('https://api.github.com/users/UndKiMi');
+        const user = await response.json();
+        
+        console.log('📊 Données GitHub récupérées:', {
+          login: user.login,
+          name: user.name,
+          bio: user.bio,
+          location: user.location,
+          company: user.company,
+          followers: user.followers,
+          following: user.following,
+          public_repos: user.public_repos,
+          created_at: user.created_at
+        });
+        
+        document.getElementById('followers').textContent = user.followers || 0;
+        document.getElementById('total-repos').textContent = user.public_repos || 0;
+        
+        const eventsResponse = await fetch('https://api.github.com/users/UndKiMi/events?per_page=100');
+        allEvents = await eventsResponse.json();
+        
+        const reposResponse = await fetch('https://api.github.com/users/UndKiMi/repos?sort=updated&per_page=10');
+        const repos = await reposResponse.json();
+        
+        console.log('📦 Repos récupérés:', repos.map(r => ({ name: r.name, stars: r.stargazers_count, language: r.language })));
+        
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        const recentEvents = allEvents.filter(event => new Date(event.created_at) > thirtyDaysAgo);
+        document.getElementById('total-contributions').textContent = recentEvents.length;
+        
+        let streak = 0;
+        const today = new Date();
+        const dateSet = new Set();
+        
+        allEvents.forEach(event => {
+          const date = event.created_at.split('T')[0];
+          dateSet.add(date);
+        });
+        
+        for (let i = 0; i < 365; i++) {
+          const checkDate = new Date(today);
+          checkDate.setDate(checkDate.getDate() - i);
+          const dateStr = checkDate.toISOString().split('T')[0];
+          
+          if (dateSet.has(dateStr)) {
+            streak++;
+          } else if (i > 0) {
+            break;
+          }
+        }
+        
+        document.getElementById('current-streak').textContent = streak;
+        
+        generateActivityTable(allEvents, repos);
+        
+        console.log('✅ Statistiques GitHub chargées avec succès');
+        
+      } catch (error) {
+        console.error('❌ Erreur GitHub:', error);
+        document.getElementById('total-contributions').textContent = '?';
+        document.getElementById('current-streak').textContent = '?';
+        document.getElementById('followers').textContent = '?';
+        document.getElementById('total-repos').textContent = '?';
+        
+        const tbody = document.getElementById('github-activity-tbody');
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-dim);">Erreur de chargement</td></tr>';
+      }
+    }
+    
+    // Générer le tableau d'activité GitHub
+    function generateActivityTable(events, repos = []) {
+      const tbody = document.getElementById('github-activity-tbody');
+      tbody.innerHTML = '';
+      
+      const repoEvents = {};
+      events.forEach(event => {
+        if (event.type === 'PushEvent' && event.repo) {
+          const repoName = event.repo.name;
+          if (!repoEvents[repoName]) {
+            repoEvents[repoName] = [];
+          }
+          repoEvents[repoName].push(event);
+        }
+      });
+      
+      const sortedRepos = Object.keys(repoEvents).sort((a, b) => {
+        const aLatest = new Date(repoEvents[a][0].created_at);
+        const bLatest = new Date(repoEvents[b][0].created_at);
+        return bLatest - aLatest;
+      });
+      
+      if (sortedRepos.length > 0) {
+        sortedRepos.slice(0, 5).forEach(repoName => {
+          const latestEvent = repoEvents[repoName][0];
+          const commitMessage = latestEvent.payload?.commits?.[0]?.message || 'Pas de message';
+          const commitTime = new Date(latestEvent.created_at);
+          const timeAgo = getTimeAgo(commitTime);
+          
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>
+              <a href="https://github.com/${repoName}" target="_blank" class="repo-name">
+                ${repoName.split('/')[1]}
+              </a>
+            </td>
+            <td class="commit-message" title="${commitMessage}">
+              ${commitMessage.length > 30 ? commitMessage.substring(0, 30) + '...' : commitMessage}
+            </td>
+            <td class="commit-time">${timeAgo}</td>
+          `;
+          
+          tbody.appendChild(row);
+        });
+      } else if (repos.length > 0) {
+        repos.slice(0, 5).forEach(repo => {
+          const updatedTime = new Date(repo.updated_at);
+          const timeAgo = getTimeAgo(updatedTime);
+          
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>
+              <a href="${repo.html_url}" target="_blank" class="repo-name">
+                ${repo.name}
+              </a>
+            </td>
+            <td class="commit-message">
+              ${repo.description || 'Pas de description'}
+            </td>
+            <td class="commit-time">${timeAgo}</td>
+          `;
+          
+          tbody.appendChild(row);
+        });
+      } else {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-dim);">Aucune activité récente</td></tr>';
+      }
+    }
+    
+    // Fonction pour calculer le temps écoulé
+    function getTimeAgo(date) {
+      const seconds = Math.floor((new Date() - date) / 1000);
+      
+      if (seconds < 60) return 'il y a quelques secondes';
+      if (seconds < 3600) return `il y a ${Math.floor(seconds / 60)} minutes`;
+      if (seconds < 86400) return `il y a ${Math.floor(seconds / 3600)} heures`;
+      if (seconds < 604800) return `il y a ${Math.floor(seconds / 86400)} jours`;
+      if (seconds < 2629743) return `il y a ${Math.floor(seconds / 604800)} semaines`;
+      return `il y a ${Math.floor(seconds / 2629743)} mois`;
+    }
+    
+    async function fetchSensCritiqueData() {
+      try {
+        const response = await fetch(`${BACKEND_URL}/senscritique`);
+        
+        if (!response.ok) {
+          throw new Error('Backend non disponible');
+        }
+        
+        const data = await response.json();
+        
+        if (data.error && data.fallback) {
+          useFallbackData(data.fallback);
+          return;
+        }
+        
+        document.getElementById('sc-username').textContent = data.username || 'KiMi_';
+        document.getElementById('sc-bio').textContent = `${data.gender || 'Homme'} | ${data.location || 'France'}`;
+        document.getElementById('sc-movies').textContent = data.stats?.films || 0;
+        document.getElementById('sc-series').textContent = data.stats?.series || 0;
+        document.getElementById('sc-reviews').textContent = data.stats?.total || ((data.stats?.films || 0) + (data.stats?.series || 0));
+        
+        const reviewsContainer = document.getElementById('sc-reviews-container');
+        reviewsContainer.innerHTML = '';
+        
+        if (data.reviews && data.reviews.length > 0) {
+          data.reviews.slice(0, 5).forEach(review => {
+            const reviewItem = document.createElement('div');
+            reviewItem.className = 'sc-review-item';
+            
+            reviewItem.innerHTML = `
+              <div class="sc-review-header">
+                <div class="sc-review-title">${review.title}</div>
+              </div>
+              <div class="sc-review-comment">${review.content}</div>
+              <div class="sc-review-date">${review.date}</div>
+            `;
+            
+            reviewsContainer.appendChild(reviewItem);
+          });
+        } else if (data.collections && data.collections.length > 0) {
+          data.collections.slice(0, 3).forEach(item => {
+            const reviewItem = document.createElement('div');
+            reviewItem.className = 'sc-review-item';
+            
+            reviewItem.innerHTML = `
+              <div class="sc-review-header">
+                <div class="sc-review-title">${item.title || 'Titre inconnu'}</div>
+              </div>
+              <div class="sc-review-comment">Dans la collection</div>
+            `;
+            
+            reviewsContainer.appendChild(reviewItem);
+          });
+        } else {
+          reviewsContainer.innerHTML = `
+            <div class="sc-review-item">
+              <div class="sc-review-header">
+                <div class="sc-review-title">Profil Sens Critique</div>
+              </div>
+              <div class="sc-review-comment">
+                Consultez le profil complet sur 
+                <a href="https://www.senscritique.com/KiMi_" target="_blank" style="color: var(--sc-primary);">
+                  senscritique.com/KiMi_
+                </a>
+              </div>
+            </div>
+          `;
+        }
+        
+        console.log('✅ Données Sens Critique récupérées avec succès');
+        
+      } catch (error) {
+        console.error('Erreur lors de la récupération Sens Critique:', error);
+        
+        useFallbackData({
+          username: 'KiMi_',
+          stats: { films: 66, series: 32, jeux: 19, livres: 17 },
+          profileUrl: 'https://www.senscritique.com/KiMi_'
+        });
+      }
+    }
+    
+    function useFallbackData(fallbackData) {
+      document.getElementById('sc-username').textContent = fallbackData.username || 'KiMi_';
+      document.getElementById('sc-bio').textContent = `${fallbackData.gender || 'Homme'} | ${fallbackData.location || 'France'}`;
+      document.getElementById('sc-movies').textContent = fallbackData.stats?.films || 32;
+      document.getElementById('sc-series').textContent = fallbackData.stats?.series || 17;
+      document.getElementById('sc-reviews').textContent = fallbackData.stats?.total || 68;
+      
+      const reviewsContainer = document.getElementById('sc-reviews-container');
+      reviewsContainer.innerHTML = `
+        <div class="sc-error">
+          Impossible de charger les avis depuis Sens Critique. 
+          <br>
+          <a href="${fallbackData.profileUrl || 'https://www.senscritique.com/KiMi_'}" target="_blank" style="color: var(--sc-primary);">
+            Voir le profil complet →
+          </a>
+        </div>
+      `;
+    }
+    
+    // Initialisation
+    document.addEventListener('DOMContentLoaded', function() {
+      // Mettre à jour le statut Discord immédiatement
+      updateDiscordPresence();
+      
+      // Mettre à jour toutes les 5 secondes
+      setInterval(updateDiscordPresence, 5000);
+      
+      // Charger les vraies statistiques GitHub
+      fetchGitHubStats();
+      
+      // Charger les données Sens Critique
+      fetchSensCritiqueData();
+    });
+  </script>
+</body>
+</html>

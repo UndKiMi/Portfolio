@@ -1,0 +1,174 @@
+const express = require('express');
+const { Client, GatewayIntentBits } = require('discord.js');
+const cors = require('cors');
+const { fetchSensCritiqueProfile } = require('./senscritique-scraper');
+require('dotenv').config();
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(cors());
+app.use(express.static('.'));
+
+let cachedSensCritique = null;
+let lastSCFetch = 0;
+const SC_CACHE_DURATION = 3600000;
+
+const TOKEN = process.env.DISCORD_TOKEN;
+const TARGET_USER_ID = process.env.DISCORD_USER_ID || "558793081663782913";
+
+if (!TOKEN) {
+  console.error('❌ ERREUR: DISCORD_TOKEN non défini dans .env');
+  console.log('Créez un fichier .env avec votre token Discord');
+  process.exit(1);
+}
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildPresences,
+    GatewayIntentBits.GuildMembers
+  ]
+});
+
+let cachedPresence = {
+  user: null,
+  status: 'offline',
+  activities: []
+};
+
+client.once('ready', async () => {
+  console.log(`✅ Bot connecté: ${client.user.tag}`);
+  console.log(`📊 Serveurs: ${client.guilds.cache.size}`);
+  console.log(`🔍 Recherche de l'utilisateur ${TARGET_USER_ID}...\n`);
+
+  for (const [guildId, guild] of client.guilds.cache) {
+    try {
+      const member = await guild.members.fetch(TARGET_USER_ID).catch(() => null);
+      if (member) {
+        updatePresenceCache(member);
+        console.log(`✅ Utilisateur trouvé dans: ${guild.name}`);
+        console.log(`👤 Username: ${member.user.username}`);
+        console.log(`📡 Statut: ${member.presence?.status || 'offline'}\n`);
+        break;
+      }
+    } catch (err) {
+      console.log(`⚠️  Utilisateur non trouvé dans ${guild.name}`);
+    }
+  }
+});
+
+client.on('presenceUpdate', (oldPresence, newPresence) => {
+  if (newPresence.userId === TARGET_USER_ID) {
+    updatePresenceCache(newPresence.member);
+    console.log(`🔄 Statut mis à jour: ${newPresence.status}`);
+  }
+});
+
+function updatePresenceCache(member) {
+  if (!member) return;
+
+  cachedPresence = {
+    user: {
+      id: member.user.id,
+      username: member.user.username,
+      discriminator: member.user.discriminator,
+      avatar: member.user.avatar,
+      displayName: member.displayName
+    },
+    status: member.presence?.status || 'offline',
+    activities: member.presence?.activities?.map(activity => ({
+      name: activity.name,
+      type: activity.type,
+      details: activity.details,
+      state: activity.state,
+      applicationId: activity.applicationId,
+      timestamps: activity.timestamps,
+      assets: activity.assets ? {
+        largeImage: activity.assets.largeImage,
+        largeText: activity.assets.largeText,
+        smallImage: activity.assets.smallImage,
+        smallText: activity.assets.smallText
+      } : null
+    })) || []
+  };
+}
+
+app.get('/discord-status', (req, res) => {
+  res.json(cachedPresence);
+});
+
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    botReady: client.isReady(),
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.get('/senscritique', async (req, res) => {
+  try {
+    const now = Date.now();
+    
+    if (cachedSensCritique && (now - lastSCFetch) < SC_CACHE_DURATION) {
+      console.log('📦 Utilisation du cache Sens Critique');
+      return res.json(cachedSensCritique);
+    }
+    
+    console.log('🎬 Récupération du profil Sens Critique...');
+    const profile = await fetchSensCritiqueProfile('KiMi_');
+    
+    cachedSensCritique = profile;
+    lastSCFetch = now;
+    
+    console.log('✅ Profil Sens Critique récupéré:', {
+      username: profile.username,
+      stats: profile.stats,
+      collections: profile.collections?.length || 0,
+      reviews: profile.reviews?.length || 0
+    });
+    
+    res.json(profile);
+    
+  } catch (error) {
+    console.error('❌ Erreur Sens Critique:', error.message);
+    res.status(500).json({
+      error: 'Impossible de récupérer le profil',
+      fallback: {
+        username: 'KiMi_',
+        gender: 'Homme',
+        location: 'France',
+        stats: { films: 32, series: 17, jeux: 19, livres: 0, total: 68 },
+        collections: [
+          { title: 'Ratatouille', image: 'https://media.senscritique.com/media/000007069038/300/ratatouille.jpg' },
+          { title: 'The Rain', image: 'https://media.senscritique.com/media/000017755889/300/the_rain.jpg' },
+          { title: 'Star Citizen', image: 'https://media.senscritique.com/media/000020208505/300/star_citizen.png' }
+        ],
+        reviews: [
+          {
+            title: 'The Rain',
+            content: 'Honnêtement, j\'ai vraiment accroché à cette série. Le concept du virus transmis par la pluie est super original et ça rend l\'ambiance unique...',
+            date: 'il y a 5 jours'
+          }
+        ],
+        profileUrl: 'https://www.senscritique.com/KiMi_',
+        avatar: 'https://media.senscritique.com/media/media/000022812759/48x48/avatar.jpg'
+      }
+    });
+  }
+});
+
+client.login(TOKEN).catch(err => {
+  console.error('❌ Erreur de connexion Discord:', err.message);
+  console.log('\n📝 Vérifiez:');
+  console.log('1. Que le token est correct dans .env');
+  console.log('2. Que les Privileged Gateway Intents sont activés');
+  console.log('3. Que le bot est sur un serveur Discord\n');
+  process.exit(1);
+});
+
+app.listen(PORT, () => {
+  console.log(`\n🚀 Serveur lancé sur http://localhost:${PORT}`);
+  console.log(`📡 Endpoint Discord: http://localhost:${PORT}/discord-status`);
+  console.log(`\n💡 Ouvrez index.html dans votre navigateur\n`);
+});
