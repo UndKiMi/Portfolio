@@ -1,8 +1,8 @@
 import { CONFIG, URLS } from '../config/constants.js';
-import { getElements, getCache } from '../core/state.js';
+import { getCache, getElements } from '../core/state.js';
 import { isCacheValid } from '../utils/cache.js';
 import { formatReviewDate } from '../utils/date.js';
-import { setupStatLinks, setupFavoritesSlider } from '../utils/ui.js';
+import { setupFavoritesSlider, setupStatLinks } from '../utils/ui.js';
 
 export async function fetchSensCritiqueData() {
   const cache = getCache();
@@ -13,9 +13,16 @@ export async function fetchSensCritiqueData() {
 
   try {
     const response = await fetch(`${CONFIG.backendUrl}/senscritique`);
-    if (!response.ok) throw new Error('Backend non disponible');
+    if (!response.ok) {
+      throw new Error(`Backend non disponible: ${response.status}`);
+    }
 
     const data = await response.json();
+    
+    if (!data) {
+      throw new Error('Aucune donnée reçue du backend');
+    }
+    
     cache.sensCritique = data;
     cache.lastScFetch = Date.now();
 
@@ -27,6 +34,7 @@ export async function fetchSensCritiqueData() {
     updateUIWithSCData(data);
   } catch (error) {
     console.error('Erreur lors de la récupération Sens Critique:', error);
+    // Toujours afficher les données de secours en cas d'erreur
     useFallbackData({
       username: CONFIG.scUsername,
       stats: { films: 66, series: 32, jeux: 19, livres: 17 }
@@ -37,6 +45,12 @@ export async function fetchSensCritiqueData() {
 function updateUIWithSCData(data) {
   const elements = getElements();
   const { sc } = elements;
+  
+  if (!sc || !sc.reviewsContainer) {
+    console.error('Éléments DOM Sens Critique non initialisés');
+    return;
+  }
+  
   sc.username.textContent = data.username || CONFIG.scUsername;
   
   // Construire le texte de la bio avec genre, localisation et âge
@@ -51,6 +65,7 @@ function updateUIWithSCData(data) {
   sc.reviews.textContent = data.stats?.total || ((data.stats?.films || 0) + (data.stats?.series || 0) + (data.stats?.jeux || 0));
 
   const reviewsContainer = sc.reviewsContainer;
+  // Toujours supprimer le message de chargement
   reviewsContainer.innerHTML = '';
 
   if (data.reviews && data.reviews.length > 0 && data.reviews[0].content) {
@@ -58,9 +73,80 @@ function updateUIWithSCData(data) {
     reviewsToShow.forEach(review => {
       const reviewItem = document.createElement('a');
       reviewItem.className = 'sc-review-item';
-      reviewItem.href = review.url || `${URLS.scProfile}/critiques`;
+      
+      // Extraire l'URL du href dans le content si url est null
+      let reviewUrl = review.url;
+      if (!reviewUrl && review.content) {
+        const hrefMatch = review.content.match(/href="([^"]+)"/);
+        if (hrefMatch) {
+          reviewUrl = hrefMatch[1];
+        }
+      }
+      
+      // Construire l'URL complète si elle est relative
+      if (!reviewUrl) {
+        reviewUrl = `${URLS.scProfile}/critiques`;
+      } else if (reviewUrl.startsWith('/')) {
+        reviewUrl = `https://www.senscritique.com${reviewUrl}`;
+      }
+      
+      reviewItem.href = reviewUrl;
       reviewItem.target = '_blank';
       reviewItem.rel = 'noopener noreferrer';
+
+      // Nettoyer le contenu : enlever le HTML et décoder les entités
+      let rawContent = review.content || review.comment || '';
+      let cleanContent = null;
+      
+      if (rawContent && rawContent.trim().length > 0) {
+        // Vérifier si le contenu ressemble à une balise HTML invalide
+        // (contient class=, href=, data-testid= mais pas de texte réel)
+        // On vérifie que ce n'est PAS juste une balise HTML incomplète
+        const looksLikeInvalidHTML = rawContent.includes('class=') && 
+                                      rawContent.includes('href=') && 
+                                      (rawContent.includes('data-testid=') || rawContent.includes('sc-')) &&
+                                      rawContent.length < 200 &&
+                                      !rawContent.match(/[a-zA-Z]{10,}/) && // Pas de mot de plus de 10 lettres (texte réel)
+                                      !rawContent.match(/^[^<]*[a-zA-Z]{20,}[^>]*$/); // Pas de texte réel de plus de 20 caractères
+        
+        if (!looksLikeInvalidHTML) {
+          // Si le content contient du HTML, extraire seulement le texte
+          if (rawContent.includes('<') || rawContent.includes('href=')) {
+            // Créer un élément temporaire pour parser le HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = rawContent;
+            cleanContent = tempDiv.textContent || tempDiv.innerText || '';
+          } else {
+            cleanContent = rawContent;
+          }
+          
+          // Décoder les entités HTML
+          if (cleanContent && cleanContent.trim().length > 0) {
+            const textarea = document.createElement('textarea');
+            textarea.innerHTML = cleanContent;
+            cleanContent = textarea.value.trim();
+            
+            // Vérifier que le contenu final est valide (pas vide après nettoyage)
+            // et qu'il contient du texte réel (pas juste des attributs HTML)
+            // Si le contenu fait plus de 30 caractères et contient des mots, c'est valide
+            if (cleanContent.length > 0 && 
+                (cleanContent.length >= 30 || !cleanContent.includes('class=') || !cleanContent.includes('href='))) {
+              // Le contenu est valide, on le garde
+            } else {
+              cleanContent = null;
+            }
+          } else {
+            cleanContent = null;
+          }
+        }
+        // Si looksLikeInvalidHTML est true, cleanContent reste null (ne pas afficher)
+      }
+      
+      // Nettoyer le titre aussi (décoder &amp; etc.)
+      let cleanTitle = review.title || 'Sans titre';
+      const titleTextarea = document.createElement('textarea');
+      titleTextarea.innerHTML = cleanTitle;
+      cleanTitle = titleTextarea.value;
 
       // Priorité: date_raw (texte brut original) > date (texte) > created_at (ISO)
       // On préfère utiliser le texte brut original pour garder le format Sens Critique
@@ -82,15 +168,16 @@ function updateUIWithSCData(data) {
 
       reviewItem.innerHTML = `
         <div class="sc-review-header">
-          <div class="sc-review-title">${review.title || 'Sans titre'}${ratingStars}</div>
+          <div class="sc-review-title">${cleanTitle}${ratingStars}</div>
         </div>
-        <div class="sc-review-comment">${review.content || review.comment || 'Pas de commentaire'}</div>
+        ${cleanContent ? `<div class="sc-review-comment">${cleanContent}</div>` : ''}
         ${formattedDate ? `<div class="sc-review-date">${formattedDate}</div>` : ''}
       `;
 
       reviewsContainer.appendChild(reviewItem);
     });
   } else {
+    // Si pas de critiques, utiliser les données de secours
     useFallbackData({ username: CONFIG.scUsername, stats: data.stats });
     return;
   }
@@ -155,6 +242,12 @@ function renderFavoriteMovies(favorites) {
 function useFallbackData(fallbackData) {
   const elements = getElements();
   const { sc } = elements;
+  
+  if (!sc || !sc.reviewsContainer) {
+    console.error('Éléments DOM Sens Critique non initialisés dans useFallbackData');
+    return;
+  }
+  
   sc.username.textContent = fallbackData.username || CONFIG.scUsername;
   sc.bio.textContent = `${fallbackData.gender || 'Homme'} | ${fallbackData.location || 'France'}`;
   sc.movies.textContent = fallbackData.stats?.films || 66;
@@ -187,6 +280,7 @@ function useFallbackData(fallbackData) {
   ];
 
   const reviewsContainer = sc.reviewsContainer;
+  // S'assurer que le message de chargement est supprimé
   reviewsContainer.innerHTML = '';
 
   fallbackReviews.forEach(review => {

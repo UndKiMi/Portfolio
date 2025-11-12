@@ -51,15 +51,24 @@ export async function updateDiscordPresence() {
 
     cache.lastDiscordFetch = Date.now();
   } catch (error) {
+    console.error('Erreur Discord:', error);
     if (!cache.discord) {
       const elements = getElements();
       const { discord } = elements;
+      
+      if (!discord || !discord.username || !discord.status || !discord.statusText || !discord.activity) {
+        console.error('❌ Éléments DOM Discord non initialisés');
+        return;
+      }
+      
       discord.username.textContent = 'KiMi';
       discord.status.className = 'status-dot offline';
       discord.statusText.textContent = 'Serveur hors ligne';
       discord.activity.textContent = 'Démarrez le serveur backend pour voir le statut Discord';
       discord.activity.classList.remove('voice');
-      discord.streaming.classList.remove('is-visible');
+      if (discord.streaming) {
+        discord.streaming.classList.remove('is-visible');
+      }
     }
   } finally {
     setDiscordFetchInProgress(false);
@@ -113,7 +122,7 @@ function renderVoiceActivity(voiceState) {
   activity.innerHTML = voiceContent;
   activity.classList.add('voice');
   streaming.classList.toggle('is-visible', Boolean(isStreaming));
-  streaming.textContent = isStreaming ? '📺 En partage d'écran' : '';
+  streaming.textContent = isStreaming ? '📺 En partage d\'écran' : '';
 }
 
 function renderStandardActivity(activities) {

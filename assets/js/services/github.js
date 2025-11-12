@@ -1,5 +1,5 @@
 import { CONFIG, URLS } from '../config/constants.js';
-import { getElements, getCache } from '../core/state.js';
+import { getCache, getElements } from '../core/state.js';
 import { isCacheValid } from '../utils/cache.js';
 import { getTimeAgo } from '../utils/date.js';
 
@@ -40,9 +40,15 @@ function updateUIWithGitHubData(data) {
     return;
   }
 
-  const { user, repos, events } = data;
   const elements = getElements();
   const { github } = elements;
+  
+  if (!github || !github.followers || !github.repos || !github.contributions || !github.streak || !github.activityTable) {
+    console.error('❌ Éléments DOM GitHub non initialisés');
+    return;
+  }
+
+  const { user, repos, events } = data;
 
   github.followers.textContent = user.followers || 0;
   github.repos.textContent = user.public_repos || 0;
@@ -92,6 +98,14 @@ function calculateStreak(events = []) {
 }
 
 function useFallbackGitHubData() {
+  const elements = getElements();
+  const { github } = elements;
+  
+  if (!github || !github.followers || !github.repos || !github.contributions || !github.streak || !github.activityTable) {
+    console.error('❌ Éléments DOM GitHub non initialisés dans useFallbackGitHubData');
+    return;
+  }
+  
   const fallbackData = {
     user: {
       followers: 2,
@@ -123,8 +137,6 @@ function useFallbackGitHubData() {
     events: []
   };
 
-  const elements = getElements();
-  const { github } = elements;
   github.contributions.textContent = '45';
   github.streak.textContent = '3';
   github.followers.textContent = fallbackData.user.followers;
@@ -135,7 +147,13 @@ function useFallbackGitHubData() {
 
 async function generateActivityTable(events, repos = []) {
   const elements = getElements();
-  const tbody = elements.github.activityTable;
+  const tbody = elements.github?.activityTable;
+  
+  if (!tbody) {
+    console.error('❌ Tableau d\'activité GitHub non trouvé');
+    return;
+  }
+  
   tbody.innerHTML = '';
 
   if (!repos || repos.length === 0) {

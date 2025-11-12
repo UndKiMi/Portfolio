@@ -34,5 +34,15 @@ export function initElements() {
       reviewsCard: document.getElementById('sc-reviews-card')
     }
   };
+  
+  // Vérifier que tous les éléments critiques sont présents
+  const missing = [];
+  if (!state.elements.sc.reviewsContainer) missing.push('sc-reviews-container');
+  if (!state.elements.github.activityTable) missing.push('github-activity-tbody');
+  if (!state.elements.discord.username) missing.push('discord-username');
+  
+  if (missing.length > 0) {
+    console.warn('⚠️ Éléments DOM manquants:', missing);
+  }
 }
 
