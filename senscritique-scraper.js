@@ -889,8 +889,16 @@ async function fetchSensCritiqueReviews(username) {
         return 0;
       });
       
+      // S'assurer qu'on retourne toujours un tableau
+      if (!Array.isArray(reviews)) {
+        console.warn('⚠️  reviews n\'est pas un tableau dans fetchSensCritiqueReviews, conversion...');
+        reviews = [];
+      }
+      
       console.log(`✅ ${reviews.length} critiques trouvées`);
-      console.log(`📊 Exemples de dates: ${reviews.slice(0, 3).map(r => r.date_raw || r.date || 'N/A').join(', ')}`);
+      if (reviews.length > 0) {
+        console.log(`📊 Exemples de dates: ${reviews.slice(0, 3).map(r => r.date_raw || r.date || 'N/A').join(', ')}`);
+      }
       resolve(reviews);
     } catch (error) {
       console.error('❌ Erreur Puppeteer:', error.message);
@@ -1048,9 +1056,13 @@ async function fetchSensCritiqueProfile(username) {
           
           try {
             reviews = await fetchSensCritiqueReviews(username);
+            if (!Array.isArray(reviews)) {
+              console.warn('⚠️  fetchSensCritiqueReviews n\'a pas retourné un tableau, conversion...');
+              reviews = [];
+            }
             console.log(`✅ ${reviews.length} critiques récupérées depuis /critiques`);
           } catch (reviewError) {
-            console.log('⚠️  Erreur récupération critiques, utilisation du fallback');
+            console.error('❌ Erreur récupération critiques:', reviewError.message);
             reviews = [];
           }
           
@@ -1132,14 +1144,20 @@ async function fetchSensCritiqueProfile(username) {
             }
           }
           
+          // S'assurer que reviews est toujours un tableau
+          if (!Array.isArray(reviews)) {
+            console.warn('⚠️  reviews n\'est pas un tableau, conversion en tableau vide');
+            reviews = [];
+          }
+
           const profile = {
             username: profileUsername,
             location: location,
             gender: gender,
             age: age,
             stats,
-            collections,
-            reviews,
+            collections: collections || [],
+            reviews: reviews || [],
             profileUrl: url,
             avatar: 'https://media.senscritique.com/media/media/000022812759/48x48/avatar.jpg'
           };

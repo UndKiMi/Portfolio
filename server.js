@@ -375,7 +375,12 @@ app.get('/senscritique', async (req, res) => {
     
     if (cachedSensCritique && (now - lastSCFetch) < SC_CACHE_DURATION) {
       console.log('📦 Utilisation du cache Sens Critique');
-      return res.json(cachedSensCritique);
+      // S'assurer que le cache contient bien des critiques
+      if (cachedSensCritique.reviews && Array.isArray(cachedSensCritique.reviews) && cachedSensCritique.reviews.length > 0) {
+        return res.json(cachedSensCritique);
+      } else {
+        console.log('⚠️  Cache invalide (pas de critiques), rechargement...');
+      }
     }
     
     console.log('🎬 Récupération du profil SensCritique...');

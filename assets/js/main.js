@@ -677,6 +677,17 @@ async function fetchSensCritiqueData() {
     if (!response.ok) throw new Error('Backend non disponible');
 
     const data = await response.json();
+    
+    // Vérifier que les données sont valides
+    if (!data) {
+      throw new Error('Données vides reçues du backend');
+    }
+
+    // Vérifier que les données contiennent des critiques
+    if (!data.reviews || !Array.isArray(data.reviews) || data.reviews.length === 0) {
+      console.warn('⚠️ Aucune critique dans les données SensCritique reçues');
+    }
+
     state.cache.sensCritique = data;
     state.cache.lastScFetch = Date.now();
 
@@ -696,6 +707,11 @@ async function fetchSensCritiqueData() {
 }
 
 function updateUIWithSCData(data) {
+  if (!data) {
+    console.error('❌ Aucune donnée reçue pour SensCritique');
+    return;
+  }
+
   const { sc } = state.elements;
   sc.username.textContent = data.username || CONFIG.scUsername;
   
@@ -713,20 +729,29 @@ function updateUIWithSCData(data) {
   const reviewsContainer = sc.reviewsContainer;
   reviewsContainer.innerHTML = '';
 
-  if (data.reviews && Array.isArray(data.reviews) && data.reviews.length > 0) {
-    // Afficher TOUTES les critiques, pas seulement 50
-    const reviewsToShow = data.reviews.filter(r => r && r.title); // Filtrer les critiques valides
-    console.log(`📝 Affichage de ${reviewsToShow.length} critiques sur ${data.reviews.length} totales`);
-    
-    if (reviewsToShow.length === 0) {
-      reviewsContainer.innerHTML = '<div class="sc-review-item">Aucune critique disponible</div>';
-      return;
-    }
-    
-    // Utiliser DocumentFragment pour optimiser le rendu (une seule opération DOM)
-    const fragment = document.createDocumentFragment();
-    
-    reviewsToShow.forEach(review => {
+  // Vérifier que reviews existe et est un tableau
+  const reviews = data.reviews;
+  if (!reviews || !Array.isArray(reviews) || reviews.length === 0) {
+    reviewsContainer.innerHTML = '<div class="sc-review-item">Aucune critique disponible</div>';
+    loadFavoriteMovies(data.favorites || data.collections || []);
+    setupStatLinks();
+    return;
+  }
+
+  // Afficher TOUTES les critiques, pas seulement 50
+  const reviewsToShow = reviews.filter(r => r && r.title); // Filtrer les critiques valides
+  
+  if (reviewsToShow.length === 0) {
+    reviewsContainer.innerHTML = '<div class="sc-review-item">Aucune critique disponible</div>';
+    loadFavoriteMovies(data.favorites || data.collections || []);
+    setupStatLinks();
+    return;
+  }
+  
+  // Utiliser DocumentFragment pour optimiser le rendu (une seule opération DOM)
+  const fragment = document.createDocumentFragment();
+  
+  reviewsToShow.forEach(review => {
       const reviewItem = document.createElement('a');
       reviewItem.className = 'sc-review-item';
       reviewItem.href = review.url || `${URLS.scProfile}/critiques`;
@@ -770,14 +795,10 @@ function updateUIWithSCData(data) {
       fragment.appendChild(reviewItem);
     });
     
-    // Ajouter tous les éléments en une seule opération DOM
-    reviewsContainer.appendChild(fragment);
-  } else {
-    console.warn('⚠️ Aucune critique trouvée dans les données');
-    reviewsContainer.innerHTML = '<div class="sc-review-item">Aucune critique disponible</div>';
-  }
+  // Ajouter tous les éléments en une seule opération DOM
+  reviewsContainer.appendChild(fragment);
 
-  loadFavoriteMovies(data.favorites || []);
+  loadFavoriteMovies(data.favorites || data.collections || []);
   setupStatLinks();
 }
 
