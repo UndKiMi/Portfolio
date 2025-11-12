@@ -9,10 +9,26 @@ function parseReviewsFromHTML(html) {
     // Pattern spécifique pour Sens Critique: "Critique de [Titre] par [User]"
     // Structure: "Critique de [Titre] par KiMi_" + contenu + "Par KiMi_" + date
     // On cherche d'abord les titres, puis le contenu et la date dans le contexte
-    const titlePattern = /(?:<h[23][^>]*>|##\s*)Critique de ([^<\n]+?)\s+par\s+KiMi_/gi;
-    const titleMatches = [...html.matchAll(titlePattern)];
     
-    console.log(`🔍 ${titleMatches.length} titres de critiques trouvés`);
+    // Essayer plusieurs patterns pour trouver les critiques
+    const titlePatterns = [
+      /(?:<h[23][^>]*>|##\s*)Critique de ([^<\n]+?)\s+par\s+KiMi_/gi,
+      /Critique de ([^<\n]+?)\s+par\s+KiMi_/gi,
+      /data-testid="reviewTitle"[^>]*>Critique de ([^<]+?)\s+par/gi,
+      /<h2[^>]*data-testid="reviewTitle"[^>]*>([^<]+?)<\/h2>/gi
+    ];
+    
+    let titleMatches = [];
+    for (const pattern of titlePatterns) {
+      const matches = [...html.matchAll(pattern)];
+      if (matches.length > 0) {
+        console.log(`🔍 Pattern "${pattern}" trouvé: ${matches.length} titres`);
+        titleMatches = matches;
+        break;
+      }
+    }
+    
+    console.log(`🔍 ${titleMatches.length} titres de critiques trouvés au total`);
     
     // Pour chaque titre trouvé, chercher le contenu et la date dans le contexte suivant
     for (const titleMatch of titleMatches) {
@@ -480,16 +496,47 @@ async function fetchSensCritiqueReviews(username) {
       
       res.on('end', () => {
         try {
+          console.log(`📄 Taille du HTML reçu: ${data.length} caractères`);
+          
           const dom = new JSDOM(data);
           const document = dom.window.document;
           const reviews = [];
           
+          // Log pour déboguer - vérifier si on a du contenu
+          const bodyText = document.body ? document.body.textContent : '';
+          console.log(`📄 Texte du body (500 premiers caractères): ${bodyText.substring(0, 500)}`);
+          
           // Essayer plusieurs sélecteurs CSS pour trouver les critiques
           let reviewElements = document.querySelectorAll('.elco-collection-item, .ProductListItem, [class*="review"], [class*="critique"], [class*="elco-collection"]');
+          console.log(`🔍 Sélecteur principal: ${reviewElements.length} éléments trouvés`);
           
           // Si aucun élément trouvé, essayer d'autres sélecteurs
           if (reviewElements.length === 0) {
             reviewElements = document.querySelectorAll('article, [data-testid*="review"], [class*="Review"], [class*="Critique"], [class*="elco"]');
+            console.log(`🔍 Sélecteur alternatif: ${reviewElements.length} éléments trouvés`);
+          }
+          
+          // Essayer des sélecteurs encore plus génériques
+          if (reviewElements.length === 0) {
+            // Chercher tous les articles
+            reviewElements = document.querySelectorAll('article');
+            console.log(`🔍 Tous les articles: ${reviewElements.length} éléments trouvés`);
+          }
+          
+          // Essayer de chercher par data-testid="review-overview"
+          if (reviewElements.length === 0) {
+            reviewElements = document.querySelectorAll('[data-testid="review-overview"]');
+            console.log(`🔍 data-testid="review-overview": ${reviewElements.length} éléments trouvés`);
+          }
+          
+          // Essayer de chercher des liens vers des critiques
+          if (reviewElements.length === 0) {
+            const reviewLinks = document.querySelectorAll('a[href*="/critique/"]');
+            console.log(`🔍 Liens vers critiques: ${reviewLinks.length} éléments trouvés`);
+            if (reviewLinks.length > 0) {
+              // Créer des éléments factices à partir des liens
+              reviewElements = reviewLinks;
+            }
           }
           
           // Traiter les éléments trouvés avec les sélecteurs CSS
@@ -562,6 +609,25 @@ async function fetchSensCritiqueReviews(username) {
           // Si on n'a pas trouvé de critiques avec les sélecteurs CSS, essayer le parsing HTML brut
           if (reviews.length === 0) {
             console.log('⚠️  Aucune critique trouvée avec les sélecteurs CSS, recherche dans le HTML brut...');
+            
+            // Vérifier si le HTML contient des indices de critiques
+            const hasReviewIndicators = data.includes('review') || data.includes('critique') || data.includes('Critique de');
+            console.log(`🔍 Indicateurs de critiques dans le HTML: ${hasReviewIndicators}`);
+            
+            // Chercher des patterns spécifiques dans le HTML brut
+            const reviewPatterns = [
+              /data-testid="review-overview"/gi,
+              /Critique de [^<]+ par/gi,
+              /\/critique\/\d+/gi
+            ];
+            
+            for (const pattern of reviewPatterns) {
+              const matches = data.match(pattern);
+              if (matches) {
+                console.log(`🔍 Pattern trouvé: ${pattern} - ${matches.length} occurrences`);
+              }
+            }
+            
             const htmlReviews = parseReviewsFromHTML(data);
             reviews.push(...htmlReviews);
           } else {
