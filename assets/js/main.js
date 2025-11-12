@@ -575,7 +575,8 @@ function updateUIWithSCData(data) {
       reviewItem.target = '_blank';
       reviewItem.rel = 'noopener noreferrer';
 
-      const dateToFormat = review.date || review.created_at || review.updated_at;
+      // Prioriser created_at ou updated_at (dates ISO) sur date (texte relatif)
+      const dateToFormat = review.created_at || review.updated_at || review.date;
       const formattedDate = dateToFormat ? formatReviewDate(dateToFormat) : '';
       const ratingStars = review.rating ? ` | ${review.rating}⭐` : '';
 
@@ -599,7 +600,82 @@ function updateUIWithSCData(data) {
 }
 
 function formatReviewDate(dateString) {
-  return getTimeAgo(dateString) || '';
+  if (!dateString) return '';
+  
+  // Si c'est déjà une date ISO (format YYYY-MM-DD), utiliser getTimeAgo directement
+  if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+    return getTimeAgo(dateString) || '';
+  }
+  
+  // Si c'est une date relative (texte), essayer de la parser
+  if (typeof dateString === 'string' && dateString.toLowerCase().includes('il y a')) {
+    const parsedDate = parseRelativeDateText(dateString);
+    if (parsedDate) {
+      return getTimeAgo(parsedDate) || '';
+    }
+    // Si on ne peut pas parser, retourner le texte original
+    return dateString;
+  }
+  
+  // Sinon, essayer getTimeAgo qui peut gérer certains formats
+  return getTimeAgo(dateString) || dateString || '';
+}
+
+// Fonction pour parser les dates relatives en dates absolues
+function parseRelativeDateText(dateText) {
+  if (!dateText) return null;
+  
+  const now = new Date();
+  const lowerText = dateText.toLowerCase().trim();
+  
+  // "Il y a X jour(s)"
+  const joursMatch = lowerText.match(/il y a (\d+)\s*jour(s)?/i);
+  if (joursMatch) {
+    const days = parseInt(joursMatch[1]);
+    const date = new Date(now);
+    date.setDate(date.getDate() - days);
+    return date.toISOString();
+  }
+  
+  // "Il y a X semaines"
+  const semainesMatch = lowerText.match(/il y a (\d+)\s*semaine/i);
+  if (semainesMatch) {
+    const weeks = parseInt(semainesMatch[1]);
+    const date = new Date(now);
+    date.setDate(date.getDate() - (weeks * 7));
+    return date.toISOString();
+  }
+  
+  // "Il y a X mois"
+  const moisMatch = lowerText.match(/il y a (\d+)\s*mois/i);
+  if (moisMatch) {
+    const months = parseInt(moisMatch[1]);
+    const date = new Date(now);
+    date.setMonth(date.getMonth() - months);
+    return date.toISOString();
+  }
+  
+  // "Il y a X ans"
+  const ansMatch = lowerText.match(/il y a (\d+)\s*an/i);
+  if (ansMatch) {
+    const years = parseInt(ansMatch[1]);
+    const date = new Date(now);
+    date.setFullYear(date.getFullYear() - years);
+    return date.toISOString();
+  }
+  
+  // "Aujourd'hui" ou "Hier"
+  if (lowerText.includes('aujourd') || lowerText.includes('auj.')) {
+    return now.toISOString();
+  }
+  
+  if (lowerText.includes('hier')) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - 1);
+    return date.toISOString();
+  }
+  
+  return null;
 }
 
 function setupStatLinks() {

@@ -1,6 +1,70 @@
 const https = require('https');
 const { JSDOM } = require('jsdom');
 
+// Fonction pour parser les dates relatives de Sens Critique
+function parseRelativeDate(dateText) {
+  if (!dateText) return null;
+  
+  const now = new Date();
+  const lowerText = dateText.toLowerCase().trim();
+  
+  // "Il y a X jour(s)"
+  const joursMatch = lowerText.match(/il y a (\d+)\s*jour(s)?/i);
+  if (joursMatch) {
+    const days = parseInt(joursMatch[1]);
+    const date = new Date(now);
+    date.setDate(date.getDate() - days);
+    return date.toISOString();
+  }
+  
+  // "Il y a X semaines"
+  const semainesMatch = lowerText.match(/il y a (\d+)\s*semaine/i);
+  if (semainesMatch) {
+    const weeks = parseInt(semainesMatch[1]);
+    const date = new Date(now);
+    date.setDate(date.getDate() - (weeks * 7));
+    return date.toISOString();
+  }
+  
+  // "Il y a X mois"
+  const moisMatch = lowerText.match(/il y a (\d+)\s*mois/i);
+  if (moisMatch) {
+    const months = parseInt(moisMatch[1]);
+    const date = new Date(now);
+    date.setMonth(date.getMonth() - months);
+    return date.toISOString();
+  }
+  
+  // "Il y a X ans"
+  const ansMatch = lowerText.match(/il y a (\d+)\s*an/i);
+  if (ansMatch) {
+    const years = parseInt(ansMatch[1]);
+    const date = new Date(now);
+    date.setFullYear(date.getFullYear() - years);
+    return date.toISOString();
+  }
+  
+  // "Aujourd'hui" ou "Hier"
+  if (lowerText.includes('aujourd') || lowerText.includes('auj.')) {
+    return now.toISOString();
+  }
+  
+  if (lowerText.includes('hier')) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - 1);
+    return date.toISOString();
+  }
+  
+  // Essayer de parser une date au format français (JJ/MM/AAAA ou JJ mois AAAA)
+  const frenchDateMatch = dateText.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (frenchDateMatch) {
+    const [, day, month, year] = frenchDateMatch;
+    return new Date(`${year}-${month}-${day}`).toISOString();
+  }
+  
+  return null;
+}
+
 async function fetchSensCritiqueReviews(username) {
   return new Promise((resolve, reject) => {
     const url = `https://www.senscritique.com/${username}/critiques`;
@@ -26,19 +90,92 @@ async function fetchSensCritiqueReviews(username) {
           const document = dom.window.document;
           const reviews = [];
           
-          const reviewElements = document.querySelectorAll('.elco-collection-item, .ProductListItem, [class*="review"], [class*="critique"]');
+          // Recherche plus large des éléments de critiques
+          const reviewElements = document.querySelectorAll('.elco-collection-item, .ProductListItem, [class*="review"], [class*="critique"], [class*="elco-collection"]');
+          
+          // Si aucun élément trouvé, essayer de chercher dans le HTML brut
+          if (reviewElements.length === 0) {
+            console.log('⚠️  Aucun élément de critique trouvé avec les sélecteurs standards, recherche alternative...');
+            // Chercher les critiques dans le HTML brut avec regex
+            const reviewRegex = /<article[^>]*>[\s\S]*?<\/article>/gi;
+            const articleMatches = data.match(reviewRegex);
+            if (articleMatches) {
+              console.log(`✅ ${articleMatches.length} articles trouvés via regex`);
+            }
+          }
           
           reviewElements.forEach((element) => {
-            const titleEl = element.querySelector('h3, h4, .title, [class*="title"]');
-            const contentEl = element.querySelector('p, .content, [class*="content"], [class*="text"]');
-            const dateEl = element.querySelector('time, .date, [class*="date"]');
-            const linkEl = element.querySelector('a[href*="/film/"], a[href*="/serie/"], a[href*="jeu"]');
-            const ratingEl = element.querySelector('[class*="rating"], [class*="note"], [aria-label*="note"]');
+            const titleEl = element.querySelector('h3, h4, .title, [class*="title"], a[class*="elco-title"]');
+            const contentEl = element.querySelector('p, .content, [class*="content"], [class*="text"], [class*="elco-description"]');
+            // Recherche plus exhaustive des dates
+            const dateEl = element.querySelector('time[datetime], time[title], .date, [class*="date"], [class*="elco-date"], [class*="elco-meta-date"], [data-date]');
+            const linkEl = element.querySelector('a[href*="/film/"], a[href*="/serie/"], a[href*="/jeu"], a[class*="elco-title"]');
+            const ratingEl = element.querySelector('[class*="rating"], [class*="note"], [aria-label*="note"], [class*="elco-rating"]');
             
             if (titleEl) {
               const title = titleEl.textContent.trim();
               const content = contentEl ? contentEl.textContent.trim() : '';
-              const date = dateEl ? dateEl.textContent.trim() : '';
+              
+              // Essayer d'extraire la date ISO depuis l'attribut datetime
+              let dateISO = null;
+              let dateText = '';
+              
+              if (dateEl) {
+                // Priorité 1: attribut datetime (date ISO)
+                dateISO = dateEl.getAttribute('datetime') || dateEl.getAttribute('data-date');
+                // Priorité 2: attribut title qui peut contenir la date
+                if (!dateISO) {
+                  dateISO = dateEl.getAttribute('title');
+                }
+                // Priorité 3: chercher dans les attributs data-*
+                if (!dateISO) {
+                  for (const attr of dateEl.attributes) {
+                    if (attr.name.startsWith('data-') && /^\d{4}-\d{2}-\d{2}/.test(attr.value)) {
+                      dateISO = attr.value;
+                      break;
+                    }
+                  }
+                }
+                // Texte affiché (pour fallback)
+                dateText = dateEl.textContent.trim();
+              }
+              
+              // Si toujours pas de date, chercher dans le HTML brut de l'élément
+              if (!dateISO && !dateText) {
+                const elementHTML = element.outerHTML || '';
+                // Chercher des attributs datetime dans le HTML brut
+                const datetimeMatch = elementHTML.match(/datetime=["']([^"']+)["']/i);
+                if (datetimeMatch) {
+                  dateISO = datetimeMatch[1];
+                }
+                // Chercher des dates au format ISO dans les attributs data
+                const dataDateMatch = elementHTML.match(/data-date=["']([^"']+)["']/i);
+                if (dataDateMatch && /^\d{4}-\d{2}-\d{2}/.test(dataDateMatch[1])) {
+                  dateISO = dataDateMatch[1];
+                }
+                // Chercher du texte de date relative
+                const relativeDateMatch = elementHTML.match(/(il y a \d+ (jour|jours|semaine|semaines|mois|an|ans))/i);
+                if (relativeDateMatch) {
+                  dateText = relativeDateMatch[1];
+                }
+              }
+              
+              // Si on a une date ISO, l'utiliser directement
+              // Sinon, essayer de parser la date relative
+              let finalDate = null;
+              if (dateISO) {
+                // Nettoyer et valider la date ISO
+                const cleanedDate = dateISO.trim();
+                if (cleanedDate && /^\d{4}-\d{2}-\d{2}/.test(cleanedDate)) {
+                  finalDate = cleanedDate;
+                }
+              }
+              
+              // Si pas de date ISO, parser la date relative
+              if (!finalDate && dateText) {
+                finalDate = parseRelativeDate(dateText);
+              }
+              
               const url = linkEl ? `https://www.senscritique.com${linkEl.getAttribute('href')}` : '';
               
               let rating = null;
@@ -54,7 +191,9 @@ async function fetchSensCritiqueReviews(username) {
                 reviews.push({
                   title,
                   content: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
-                  date: date || 'Récemment',
+                  date: finalDate || dateText || null,
+                  created_at: finalDate || null,
+                  updated_at: finalDate || null,
                   url,
                   rating
                 });
