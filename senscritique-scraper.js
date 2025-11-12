@@ -627,17 +627,29 @@ async function fetchSensCritiqueReviews(username) {
       const page = await browser.newPage();
       await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
       
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+      await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
       
-      // Attendre que les critiques soient chargées (timeout réduit)
+      // Attendre que les critiques soient chargées avec plusieurs sélecteurs
       try {
-        await page.waitForSelector('article[data-testid="review-overview"]', { timeout: 5000 });
+        await page.waitForSelector('article[data-testid="review-overview"], [data-testid*="review"], article', { timeout: 10000 });
+        console.log('✅ Sélecteur trouvé, page chargée');
       } catch (e) {
-        // Timeout acceptable, on continue
+        console.log('⚠️  Timeout sur le sélecteur, mais on continue...');
       }
       
-      // Attendre un peu pour le chargement initial
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Attendre un peu pour le chargement initial (augmenté pour laisser le temps au JS de s'exécuter)
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Vérifier ce qui est présent dans le DOM
+      const initialCheck = await page.evaluate(() => {
+        return {
+          articles: document.querySelectorAll('article').length,
+          reviewElements: document.querySelectorAll('[data-testid*="review"]').length,
+          links: document.querySelectorAll('a[href*="/film/"], a[href*="/serie/"], a[href*="/jeu"]').length,
+          bodyText: document.body.innerText.substring(0, 200)
+        };
+      });
+      console.log('📊 État initial du DOM:', initialCheck);
       
       // Faire défiler la page pour charger toutes les critiques (pagination infinie)
       let previousHeight = 0;
@@ -769,8 +781,24 @@ async function fetchSensCritiqueReviews(username) {
       // Remonter en haut après le scroll (pas besoin d'attendre)
       await page.evaluate(() => window.scrollTo(0, 0));
       
+      // Attendre un peu pour que tout soit stable
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Vérifier combien d'articles sont présents dans le DOM
+      const articleCount = await page.evaluate(() => {
+        return {
+          withTestId: document.querySelectorAll('article[data-testid="review-overview"]').length,
+          withReview: document.querySelectorAll('[data-testid*="review"]').length,
+          allArticles: document.querySelectorAll('article').length,
+          allLinks: document.querySelectorAll('a[href*="/film/"], a[href*="/serie/"], a[href*="/jeu"]').length
+        };
+      });
+      console.log(`📊 Éléments trouvés dans le DOM:`, articleCount);
+      
       // Récupérer le HTML rendu
       const data = await page.content();
+      console.log(`📄 Taille du HTML récupéré: ${data.length} caractères`);
+      
       await browser.close();
       
       // Parser le HTML avec JSDOM
@@ -1036,7 +1064,37 @@ async function fetchSensCritiqueReviews(username) {
       resolve(reviews);
     } catch (error) {
       console.error('❌ Erreur Puppeteer:', error.message);
+      console.error('❌ Stack:', error.stack);
+      
+      // Essayer de récupérer le HTML même en cas d'erreur partielle
       if (browser) {
+        try {
+          const pages = await browser.pages();
+          if (pages.length > 0) {
+            const page = pages[0];
+            const data = await page.content();
+            console.log(`📄 Tentative de récupération HTML après erreur: ${data.length} caractères`);
+            
+            // Essayer de parser le HTML récupéré
+            const dom = new JSDOM(data);
+            const document = dom.window.document;
+            const reviewElements = document.querySelectorAll('article[data-testid="review-overview"], [data-testid*="review"], article');
+            console.log(`📊 Éléments trouvés après erreur: ${reviewElements.length}`);
+            
+            if (reviewElements.length > 0) {
+              const htmlReviews = parseReviewsFromHTML(data);
+              console.log(`📝 Critiques trouvées après erreur: ${htmlReviews.length}`);
+              if (htmlReviews.length > 0) {
+                await browser.close();
+                resolve(htmlReviews);
+                return;
+              }
+            }
+          }
+        } catch (recoveryError) {
+          console.error('❌ Erreur lors de la récupération:', recoveryError.message);
+        }
+        
         await browser.close();
       }
       resolve([]);

@@ -667,6 +667,12 @@ function getTimeAgo(date) {
 }
 
 async function fetchSensCritiqueData() {
+  // Afficher le message de chargement
+  const { sc } = state.elements;
+  if (sc && sc.reviewsContainer) {
+    sc.reviewsContainer.innerHTML = '<div class="sc-loading">Chargement des critiques...</div>';
+  }
+  
   if (isCacheValid(state.cache.lastScFetch, CONFIG.cacheDurations.sensCritique) && state.cache.sensCritique) {
     updateUIWithSCData(state.cache.sensCritique);
     return;
@@ -727,8 +733,7 @@ function updateUIWithSCData(data) {
   sc.reviews.textContent = data.stats?.total || ((data.stats?.films || 0) + (data.stats?.series || 0) + (data.stats?.jeux || 0));
 
   const reviewsContainer = sc.reviewsContainer;
-  reviewsContainer.innerHTML = '';
-
+  
   // Vérifier que reviews existe et est un tableau
   const reviews = data.reviews;
   if (!reviews || !Array.isArray(reviews) || reviews.length === 0) {
@@ -737,6 +742,9 @@ function updateUIWithSCData(data) {
     setupStatLinks();
     return;
   }
+  
+  // Vider le conteneur avant d'ajouter les critiques
+  reviewsContainer.innerHTML = '';
 
   // Afficher TOUTES les critiques, pas seulement 50
   const reviewsToShow = reviews.filter(r => r && r.title); // Filtrer les critiques valides
