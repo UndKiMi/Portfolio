@@ -92,14 +92,22 @@ function parseReviewsFromHTML(html) {
           }
         }
         
+        // Normaliser "jour" en "jours" si nécessaire
+        let normalizedDateText = dateText;
+        if (dateText && dateText.includes('il y a')) {
+          const jourMatch = dateText.match(/il\s+y\s+a\s+(\d+)\s+jour\b/i);
+          if (jourMatch && parseInt(jourMatch[1]) > 1) {
+            normalizedDateText = dateText.replace(/\s+jour\b/i, ' jours');
+          }
+        }
+        
         // Ajouter la critique
-        // SOLUTION ALTERNATIVE: Toujours stocker le texte brut de la date
         const review = {
           title,
           content: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
-          date: dateText || null, // Texte brut original
-          date_raw: dateText || null, // Texte brut pour parsing côté frontend
-          created_at: finalDate || null, // Date ISO si parsing réussi
+          date: normalizedDateText || null,
+          date_raw: normalizedDateText || null,
+          created_at: finalDate || null,
           updated_at: finalDate || null,
           url,
           rating
@@ -290,17 +298,31 @@ function extractDateFromHTML(html, context) {
   // MÉTHODE 1: Chercher dans le contexte fourni
   if (context) {
     // Pattern amélioré pour "il y a X jour(s)" - accepter avec ou sans 's'
+    // Chercher aussi les dates françaises "le X nov. 2025"
     const relativeDateMatch = context.match(/il\s+y\s+a\s+(\d+)\s*(jour|jours|semaine|semaines|mois|an|ans)/i);
+    const frenchDateMatch = context.match(/le\s+\d{1,2}\s+\w+\.?\s+\d{4}/i);
+    
     if (relativeDateMatch) {
+      // Normaliser "jour" en "jours" si nécessaire
       dateText = relativeDateMatch[0].trim();
+      if (relativeDateMatch[2] === 'jour' && parseInt(relativeDateMatch[1]) > 1) {
+        dateText = dateText.replace(/\s+jour\b/i, ' jours');
+      }
+    } else if (frenchDateMatch) {
+      dateText = frenchDateMatch[0].trim();
     }
     
     // Chercher aussi après "Par KiMi_"
     if (!dateText) {
-      const parPattern = /Par\s+KiMi_[\s\S]{0,500}?(il\s+y\s+a\s+\d+\s*(?:jour|jours|semaine|semaines|mois|an|ans))/i;
+      const parPattern = /Par\s+KiMi_[\s\S]{0,500}?(il\s+y\s+a\s+\d+\s*(?:jour|jours|semaine|semaines|mois|an|ans)|le\s+\d{1,2}\s+\w+\.?\s+\d{4})/i;
       const parMatch = context.match(parPattern);
       if (parMatch && parMatch[1]) {
         dateText = parMatch[1].trim();
+        // Normaliser "jour" en "jours" si nécessaire
+        const jourMatch = dateText.match(/il\s+y\s+a\s+(\d+)\s+jour\b/i);
+        if (jourMatch && parseInt(jourMatch[1]) > 1) {
+          dateText = dateText.replace(/\s+jour\b/i, ' jours');
+        }
       }
     }
   }
@@ -308,8 +330,15 @@ function extractDateFromHTML(html, context) {
   // MÉTHODE 2: Chercher dans le HTML brut complet si pas trouvé
   if (!dateText && html) {
     const relativeDateMatch = html.match(/il\s+y\s+a\s+(\d+)\s*(jour|jours|semaine|semaines|mois|an|ans)/i);
+    const frenchDateMatch = html.match(/le\s+\d{1,2}\s+\w+\.?\s+\d{4}/i);
+    
     if (relativeDateMatch) {
       dateText = relativeDateMatch[0].trim();
+      if (relativeDateMatch[2] === 'jour' && parseInt(relativeDateMatch[1]) > 1) {
+        dateText = dateText.replace(/\s+jour\b/i, ' jours');
+      }
+    } else if (frenchDateMatch) {
+      dateText = frenchDateMatch[0].trim();
     }
   }
   
@@ -331,38 +360,54 @@ function extractDateFromElement(element) {
   let dateText = null;
   let dateISO = null;
   
-  // MÉTHODE 1: Chercher dans tous les <p> de l'élément (méthode la plus fiable pour SensCritique)
-  const allPs = element.querySelectorAll('p');
-  for (const p of allPs) {
-    const pText = p.textContent.trim();
-    // Pattern pour "il y a X jour(s)" ou "il y a X jours"
-    const relativeDateMatch = pText.match(/il\s+y\s+a\s+(\d+)\s*(jour|jours|semaine|semaines|mois|an|ans)/i);
-    if (relativeDateMatch) {
-      dateText = relativeDateMatch[0].trim(); // Récupérer toute la phrase
-      break;
+  // MÉTHODE 1: Chercher dans les balises <time> avec attribut datetime (le plus fiable)
+  const timeEl = element.querySelector('time[datetime]');
+  if (timeEl) {
+    dateISO = timeEl.getAttribute('datetime');
+    if (dateISO && /^\d{4}-\d{2}-\d{2}/.test(dateISO)) {
+      // Extraire aussi le texte de la date si disponible
+      const timeText = timeEl.textContent.trim();
+      if (timeText && (timeText.includes('il y a') || timeText.match(/le \d{1,2}/))) {
+        dateText = timeText;
+      }
+    } else {
+      dateISO = null;
     }
   }
   
-  // MÉTHODE 2: Chercher dans tous les <span> de l'élément
-  if (!dateText) {
-    const allSpans = element.querySelectorAll('span');
-    for (const span of allSpans) {
-      const spanText = span.textContent.trim();
-      const relativeDateMatch = spanText.match(/il\s+y\s+a\s+(\d+)\s*(jour|jours|semaine|semaines|mois|an|ans)/i);
+  // MÉTHODE 2: Chercher dans tous les <p> de l'élément
+  if (!dateText && !dateISO) {
+    const allPs = element.querySelectorAll('p');
+    for (const p of allPs) {
+      const pText = p.textContent.trim();
+      // Pattern pour "il y a X jour(s)" ou "il y a X jours" ou "le X nov. 2025"
+      const relativeDateMatch = pText.match(/il\s+y\s+a\s+(\d+)\s*(jour|jours|semaine|semaines|mois|an|ans)/i);
+      const frenchDateMatch = pText.match(/le\s+\d{1,2}\s+\w+\.?\s+\d{4}/i);
+      
       if (relativeDateMatch) {
         dateText = relativeDateMatch[0].trim();
+        break;
+      } else if (frenchDateMatch) {
+        dateText = frenchDateMatch[0].trim();
         break;
       }
     }
   }
   
-  // MÉTHODE 3: Chercher dans les balises <time> avec attribut datetime
-  if (!dateISO) {
-    const timeEl = element.querySelector('time[datetime]');
-    if (timeEl) {
-      dateISO = timeEl.getAttribute('datetime');
-      if (dateISO && !/^\d{4}-\d{2}-\d{2}/.test(dateISO)) {
-        dateISO = null;
+  // MÉTHODE 3: Chercher dans tous les <span> de l'élément
+  if (!dateText && !dateISO) {
+    const allSpans = element.querySelectorAll('span');
+    for (const span of allSpans) {
+      const spanText = span.textContent.trim();
+      const relativeDateMatch = spanText.match(/il\s+y\s+a\s+(\d+)\s*(jour|jours|semaine|semaines|mois|an|ans)/i);
+      const frenchDateMatch = spanText.match(/le\s+\d{1,2}\s+\w+\.?\s+\d{4}/i);
+      
+      if (relativeDateMatch) {
+        dateText = relativeDateMatch[0].trim();
+        break;
+      } else if (frenchDateMatch) {
+        dateText = frenchDateMatch[0].trim();
+        break;
       }
     }
   }
@@ -380,8 +425,12 @@ function extractDateFromElement(element) {
     // Chercher du texte de date relative dans le HTML
     if (!dateText) {
       const relativeDateMatch = elementHTML.match(/il\s+y\s+a\s+\d+\s*(jour|jours|semaine|semaines|mois|an|ans)/i);
+      const frenchDateMatch = elementHTML.match(/le\s+\d{1,2}\s+\w+\.?\s+\d{4}/i);
+      
       if (relativeDateMatch) {
         dateText = relativeDateMatch[0].trim();
+      } else if (frenchDateMatch) {
+        dateText = frenchDateMatch[0].trim();
       }
     }
   }
@@ -515,8 +564,46 @@ async function fetchSensCritiqueReviews(username) {
         // Timeout acceptable, on continue
       }
       
-      // Attendre un peu pour que tout soit chargé (remplacement de waitForTimeout)
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Faire défiler la page pour charger toutes les critiques (pagination infinie)
+      let previousHeight = 0;
+      let currentHeight = await page.evaluate(() => document.body.scrollHeight);
+      let scrollAttempts = 0;
+      const maxScrollAttempts = 20; // Augmenter pour charger plus de critiques
+      let previousReviewCount = 0;
+      
+      while (scrollAttempts < maxScrollAttempts) {
+        previousHeight = currentHeight;
+        previousReviewCount = await page.evaluate(() => {
+          return document.querySelectorAll('article[data-testid="review-overview"]').length;
+        });
+        
+        // Scroller jusqu'en bas
+        await page.evaluate(() => {
+          window.scrollTo(0, document.body.scrollHeight);
+        });
+        
+        // Attendre que le contenu se charge
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Vérifier la nouvelle hauteur et le nombre de critiques
+        currentHeight = await page.evaluate(() => document.body.scrollHeight);
+        const currentReviewCount = await page.evaluate(() => {
+          return document.querySelectorAll('article[data-testid="review-overview"]').length;
+        });
+        
+        scrollAttempts++;
+        
+        // Si la hauteur n'a pas changé ET le nombre de critiques n'a pas changé, on a tout chargé
+        if (previousHeight === currentHeight && previousReviewCount === currentReviewCount) {
+          break;
+        }
+      }
+      
+      console.log(`📜 Scroll terminé après ${scrollAttempts} tentatives`);
+      
+      // Remonter en haut après le scroll
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Récupérer le HTML rendu
       const data = await page.content();
@@ -590,11 +677,20 @@ async function fetchSensCritiqueReviews(username) {
           }
           
           if (title && content.length > 20) {
+            // Normaliser "jour" en "jours" si nécessaire pour le formatage
+            let normalizedDateText = dateText;
+            if (dateText && dateText.includes('il y a')) {
+              const jourMatch = dateText.match(/il\s+y\s+a\s+(\d+)\s+jour\b/i);
+              if (jourMatch && parseInt(jourMatch[1]) > 1) {
+                normalizedDateText = dateText.replace(/\s+jour\b/i, ' jours');
+              }
+            }
+            
             reviews.push({
               title,
               content: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
-              date: dateText || null,
-              date_raw: dateText || null,
+              date: normalizedDateText || null,
+              date_raw: normalizedDateText || null,
               created_at: finalDate || null,
               updated_at: finalDate || null,
               url,
@@ -667,11 +763,20 @@ async function fetchSensCritiqueReviews(username) {
               const isDuplicate = reviews.some(r => r.title === cleanTitle || r.content.substring(0, 50) === content.substring(0, 50));
               
               if (!isDuplicate) {
+                // Normaliser "jour" en "jours" si nécessaire
+                let normalizedDateText = dateText;
+                if (dateText && dateText.includes('il y a')) {
+                  const jourMatch = dateText.match(/il\s+y\s+a\s+(\d+)\s+jour\b/i);
+                  if (jourMatch && parseInt(jourMatch[1]) > 1) {
+                    normalizedDateText = dateText.replace(/\s+jour\b/i, ' jours');
+                  }
+                }
+                
                 reviews.push({
                   title: cleanTitle,
                   content: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
-                  date: dateText || null,
-                  date_raw: dateText || null,
+                  date: normalizedDateText || null,
+                  date_raw: normalizedDateText || null,
                   created_at: finalDate || null,
                   updated_at: finalDate || null,
                   url,
