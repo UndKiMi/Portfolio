@@ -1,40 +1,6 @@
 const https = require('https');
 const { JSDOM } = require('jsdom');
 
-// Fonction pour calculer la distance entre deux éléments dans le DOM
-function calculateDOMDistance(el1, el2) {
-  const path1 = [];
-  const path2 = [];
-  
-  let current = el1;
-  while (current && current !== document.body) {
-    path1.push(current);
-    current = current.parentElement;
-  }
-  
-  current = el2;
-  while (current && current !== document.body) {
-    path2.push(current);
-    current = current.parentElement;
-  }
-  
-  // Trouver l'ancêtre commun
-  let commonAncestor = null;
-  for (let i = 0; i < path1.length; i++) {
-    if (path2.includes(path1[i])) {
-      commonAncestor = path1[i];
-      break;
-    }
-  }
-  
-  if (!commonAncestor) return Infinity;
-  
-  const index1 = path1.indexOf(commonAncestor);
-  const index2 = path2.indexOf(commonAncestor);
-  
-  return index1 + index2;
-}
-
 // Fonction pour parser les critiques depuis le HTML brut
 function parseReviewsFromHTML(html) {
   const reviews = [];
@@ -402,99 +368,22 @@ async function fetchSensCritiqueReviews(username) {
           const reviews = [];
           
           // Essayer plusieurs sélecteurs CSS pour trouver les critiques
-          // Chercher d'abord les éléments qui contiennent [data-testid="linkify-text"]
-          let reviewElements = document.querySelectorAll('[data-testid="linkify-text"]');
-          
-          // Si trouvé, remonter aux parents pour trouver le conteneur de la critique
-          if (reviewElements.length > 0) {
-            const reviewContainers = new Set();
-            reviewElements.forEach(el => {
-              // Remonter jusqu'à trouver un conteneur parent (article, div avec classe spécifique, etc.)
-              let parent = el.parentElement;
-              let depth = 0;
-              while (parent && depth < 10) {
-                if (parent.tagName === 'ARTICLE' || 
-                    parent.classList.toString().includes('review') ||
-                    parent.classList.toString().includes('critique') ||
-                    parent.classList.toString().includes('elco') ||
-                    parent.querySelector('h3, h4, a[href*="/film/"], a[href*="/serie/"]')) {
-                  reviewContainers.add(parent);
-                  break;
-                }
-                parent = parent.parentElement;
-                depth++;
-              }
-            });
-            reviewElements = Array.from(reviewContainers);
-          }
-          
-          // Si toujours rien, essayer les sélecteurs classiques
-          if (reviewElements.length === 0) {
-            reviewElements = document.querySelectorAll('.elco-collection-item, .ProductListItem, [class*="review"], [class*="critique"], [class*="elco-collection"]');
-          }
+          let reviewElements = document.querySelectorAll('.elco-collection-item, .ProductListItem, [class*="review"], [class*="critique"], [class*="elco-collection"]');
           
           // Si aucun élément trouvé, essayer d'autres sélecteurs
           if (reviewElements.length === 0) {
             reviewElements = document.querySelectorAll('article, [data-testid*="review"], [class*="Review"], [class*="Critique"], [class*="elco"]');
           }
           
-          console.log(`🔍 ${reviewElements.length} éléments de critiques trouvés`);
-          
           // Traiter les éléments trouvés avec les sélecteurs CSS
-          reviewElements.forEach((element, index) => {
-            // Chercher le titre - essayer plusieurs sélecteurs
-            let titleEl = element.querySelector('h3, h4, .title, [class*="title"], a[class*="elco-title"]');
-            if (!titleEl) {
-              // Chercher dans les liens qui pointent vers des films/séries
-              titleEl = element.querySelector('a[href*="/film/"], a[href*="/serie/"], a[href*="/jeu/"]');
-            }
-            
-            // Priorité 1: Chercher le contenu dans [data-testid="linkify-text"] (le vrai texte de la critique)
-            // Chercher d'abord dans l'élément lui-même
-            let contentEl = element.querySelector('[data-testid="linkify-text"]');
-            
-            // Si pas trouvé dans l'élément, chercher dans les enfants et parents proches
-            if (!contentEl) {
-              // Chercher dans les parents proches
-              let parent = element.parentElement;
-              for (let i = 0; i < 3 && parent; i++) {
-                contentEl = parent.querySelector('[data-testid="linkify-text"]');
-                if (contentEl) break;
-                parent = parent.parentElement;
-              }
-            }
-            
-            // Priorité 2: Si pas trouvé, chercher dans d'autres sélecteurs
-            if (!contentEl) {
-              contentEl = element.querySelector('p, .content, [class*="content"], [class*="text"], [class*="elco-description"], span[class*="text"]');
-            }
-            
-            // Si toujours pas trouvé, chercher tous les [data-testid="linkify-text"] et trouver celui qui correspond
-            if (!contentEl && titleEl) {
-              const allLinkifyTexts = document.querySelectorAll('[data-testid="linkify-text"]');
-              // Chercher le linkify-text qui est le plus proche du titre dans le DOM
-              let closestLinkify = null;
-              let minDistance = Infinity;
-              
-              allLinkifyTexts.forEach(linkifyEl => {
-                // Calculer la distance dans le DOM (nombre de nœuds entre les deux)
-                const distance = calculateDOMDistance(titleEl, linkifyEl, document);
-                if (distance < minDistance && distance < 20) { // Max 20 niveaux de profondeur
-                  minDistance = distance;
-                  closestLinkify = linkifyEl;
-                }
-              });
-              
-              if (closestLinkify) {
-                contentEl = closestLinkify;
-              }
-            }
-            
-            console.log(`📝 Critique ${index + 1}: titleEl=${!!titleEl}, contentEl=${!!contentEl}`);
+          reviewElements.forEach((element) => {
+            // Sélecteurs améliorés pour le nouveau HTML de SensCritique
+            const titleEl = element.querySelector('a[data-testid="productReviewTitle"], h2[data-testid="reviewTitle"], h3, h4, .title, [class*="title"], a[class*="elco-title"]');
+            const contentEl = element.querySelector('p[data-testid="linkify"], p, .content, [class*="content"], [class*="text"], [class*="elco-description"]');
             // Recherche plus exhaustive des dates
             const dateEl = element.querySelector('time[datetime], time[title], .date, [class*="date"], [class*="elco-date"], [class*="elco-meta-date"], [data-date]');
-            const linkEl = element.querySelector('a[href*="/film/"], a[href*="/serie/"], a[href*="/jeu"], a[class*="elco-title"]');
-            const ratingEl = element.querySelector('[class*="rating"], [class*="note"], [aria-label*="note"], [class*="elco-rating"]');
+            const linkEl = element.querySelector('a[href*="/film/"], a[href*="/serie/"], a[href*="/jeu"], a[class*="elco-title"], a[data-testid="productReviewTitle"]');
+            const ratingEl = element.querySelector('[data-testid="Rating"], [class*="rating"], [class*="note"], [aria-label*="note"], [class*="elco-rating"]');
             
             if (titleEl) {
               const title = titleEl.textContent.trim();
@@ -524,6 +413,21 @@ async function fetchSensCritiqueReviews(username) {
                 dateText = dateEl.textContent.trim();
               }
               
+              // Si toujours pas de date, chercher dans tous les <p> de l'élément
+              if (!dateISO && !dateText) {
+                const allPs = element.querySelectorAll('p');
+                for (const p of allPs) {
+                  const pText = p.textContent.trim();
+                  // Chercher du texte de date relative dans le <p>
+                  const relativeDateMatch = pText.match(/(il y a \d+\s*(jour|jours|semaine|semaines|mois|an|ans))/i);
+                  if (relativeDateMatch) {
+                    dateText = relativeDateMatch[1];
+                    console.log(`📅 Date trouvée dans <p>: "${dateText}"`);
+                    break;
+                  }
+                }
+              }
+              
               // Si toujours pas de date, chercher dans le HTML brut de l'élément
               if (!dateISO && !dateText) {
                 const elementHTML = element.outerHTML || '';
@@ -538,7 +442,7 @@ async function fetchSensCritiqueReviews(username) {
                   dateISO = dataDateMatch[1];
                 }
                 // Chercher du texte de date relative
-                const relativeDateMatch = elementHTML.match(/(il y a \d+ (jour|jours|semaine|semaines|mois|an|ans))/i);
+                const relativeDateMatch = elementHTML.match(/(il y a \d+\s*(jour|jours|semaine|semaines|mois|an|ans))/i);
                 if (relativeDateMatch) {
                   dateText = relativeDateMatch[1];
                 }
@@ -572,14 +476,9 @@ async function fetchSensCritiqueReviews(username) {
               }
               
               if (title && content.length > 20) {
-                // Ne pas limiter le contenu si c'est le vrai texte de la critique
-                // (venant de [data-testid="linkify-text"])
-                const isFullContent = contentEl && contentEl.getAttribute('data-testid') === 'linkify-text';
-                const finalContent = isFullContent ? content : (content.substring(0, 200) + (content.length > 200 ? '...' : ''));
-                
                 reviews.push({
                   title,
-                  content: finalContent,
+                  content: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
                   date: dateText || null,
                   date_raw: dateText || null,
                   created_at: finalDate || null,

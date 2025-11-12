@@ -282,6 +282,7 @@ app.get('/senscritique', async (req, res) => {
       reviews: profile.reviews?.length || 0
     });
     
+    console.log(profile) 
     res.json(profile);
     
   } catch (error) {
