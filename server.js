@@ -21,7 +21,7 @@ app.use(express.static('.', { maxAge: STATIC_MAX_AGE }));
 
 let cachedSensCritique = null;
 let lastSCFetch = 0;
-const SC_CACHE_DURATION = 3600000;
+const SC_CACHE_DURATION = 300000; // 5 minutes au lieu de 1 heure pour forcer le rechargement
 
 let cachedGitHub = null;
 let lastGitHubFetch = 0;
@@ -380,6 +380,13 @@ app.get('/senscritique', async (req, res) => {
     
     console.log('🎬 Récupération du profil SensCritique...');
     const profile = await fetchSensCritiqueProfile('KiMi_');
+    
+    // S'assurer que reviews est un tableau
+    if (!profile.reviews || !Array.isArray(profile.reviews)) {
+      profile.reviews = [];
+    }
+    
+    console.log(`✅ Profil récupéré: ${profile.reviews.length} critiques`);
     
     cachedSensCritique = profile;
     lastSCFetch = now;

@@ -719,10 +719,16 @@ function updateUIWithSCData(data) {
   const reviewsContainer = sc.reviewsContainer;
   reviewsContainer.innerHTML = '';
 
-  if (data.reviews && data.reviews.length > 0 && data.reviews[0].content) {
+  if (data.reviews && Array.isArray(data.reviews) && data.reviews.length > 0) {
     // Afficher TOUTES les critiques, pas seulement 50
-    const reviewsToShow = data.reviews; // Pas de limite
-    console.log(`📝 Affichage de ${reviewsToShow.length} critiques`);
+    const reviewsToShow = data.reviews.filter(r => r && r.title); // Filtrer les critiques valides
+    console.log(`📝 Affichage de ${reviewsToShow.length} critiques sur ${data.reviews.length} totales`);
+    
+    if (reviewsToShow.length === 0) {
+      reviewsContainer.innerHTML = '<div class="sc-review-item">Aucune critique disponible</div>';
+      return;
+    }
+    
     reviewsToShow.forEach(review => {
       const reviewItem = document.createElement('a');
       reviewItem.className = 'sc-review-item';
@@ -754,20 +760,21 @@ function updateUIWithSCData(data) {
       
       const formattedDate = dateToFormat ? formatReviewDate(dateToFormat) : 'non disponible';
       const ratingStars = review.rating ? ` | ${review.rating}⭐` : '';
+      const reviewContent = review.content || review.comment || 'Pas de commentaire';
 
       reviewItem.innerHTML = `
         <div class="sc-review-header">
           <div class="sc-review-title">${review.title || 'Sans titre'}${ratingStars}</div>
         </div>
-        <div class="sc-review-comment">${review.content || review.comment || 'Pas de commentaire'}</div>
+        <div class="sc-review-comment">${reviewContent}</div>
         <div class="sc-review-date">${formattedDate}</div>
       `;
 
       reviewsContainer.appendChild(reviewItem);
     });
   } else {
-    useFallbackData({ username: CONFIG.scUsername, stats: data.stats });
-    return;
+    console.warn('⚠️ Aucune critique trouvée dans les données');
+    reviewsContainer.innerHTML = '<div class="sc-review-item">Aucune critique disponible</div>';
   }
 
   loadFavoriteMovies(data.favorites || []);

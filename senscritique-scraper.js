@@ -568,7 +568,7 @@ async function fetchSensCritiqueReviews(username) {
       let previousHeight = 0;
       let currentHeight = await page.evaluate(() => document.body.scrollHeight);
       let scrollAttempts = 0;
-      const maxScrollAttempts = 30; // Augmenter pour charger plus de critiques
+      const maxScrollAttempts = 50; // Augmenter pour charger plus de critiques
       let previousReviewCount = 0;
       let stableCount = 0; // Compteur pour vérifier que le nombre est stable
       
@@ -578,15 +578,40 @@ async function fetchSensCritiqueReviews(username) {
       });
       console.log(`📊 Critiques initiales: ${previousReviewCount}`);
       
+      // Essayer de cliquer sur le bouton "Charger plus" s'il existe
+      try {
+        const buttonFound = await page.evaluate(() => {
+          const buttons = Array.from(document.querySelectorAll('button, [role="button"], a[class*="button"]'));
+          const btn = buttons.find(b => {
+            const text = b.textContent.toLowerCase();
+            return text.includes('charger') || text.includes('voir plus') || text.includes('load more') || 
+                   b.getAttribute('data-testid')?.includes('load') ||
+                   b.className?.toLowerCase().includes('load-more');
+          });
+          if (btn) {
+            btn.click();
+            return true;
+          }
+          return false;
+        });
+        
+        if (buttonFound) {
+          console.log('🔘 Bouton "Charger plus" trouvé et cliqué');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      } catch (e) {
+        // Pas de bouton, on continue avec le scroll
+      }
+      
       while (scrollAttempts < maxScrollAttempts) {
         previousHeight = currentHeight;
         
         // Scroller progressivement (par petits incréments pour déclencher le lazy loading)
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 10; i++) {
           await page.evaluate(() => {
-            window.scrollBy(0, 500);
+            window.scrollBy(0, 300);
           });
-          await new Promise(resolve => setTimeout(resolve, 300));
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
         
         // Scroller jusqu'en bas
@@ -594,8 +619,36 @@ async function fetchSensCritiqueReviews(username) {
           window.scrollTo(0, document.body.scrollHeight);
         });
         
-        // Attendre que le contenu se charge (augmenter le temps d'attente)
+        // Attendre que le contenu se charge
         await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Essayer de cliquer sur le bouton "Charger plus" à nouveau
+        try {
+          const buttonClicked = await page.evaluate(() => {
+            const buttons = Array.from(document.querySelectorAll('button, [role="button"], a[class*="button"]'));
+            const btn = buttons.find(b => {
+              const text = b.textContent.toLowerCase();
+              const rect = b.getBoundingClientRect();
+              const isVisible = rect.top >= 0 && rect.left >= 0 && 
+                               rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+                               rect.right <= (window.innerWidth || document.documentElement.clientWidth);
+              return isVisible && (text.includes('charger') || text.includes('voir plus') || text.includes('load more') || 
+                     b.getAttribute('data-testid')?.includes('load') ||
+                     b.className?.toLowerCase().includes('load-more'));
+            });
+            if (btn) {
+              btn.click();
+              return true;
+            }
+            return false;
+          });
+          
+          if (buttonClicked) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+        } catch (e) {
+          // Ignorer les erreurs
+        }
         
         // Vérifier la nouvelle hauteur et le nombre de critiques
         currentHeight = await page.evaluate(() => document.body.scrollHeight);
@@ -614,8 +667,8 @@ async function fetchSensCritiqueReviews(username) {
           stableCount++;
         }
         
-        // Si la hauteur n'a pas changé ET le nombre de critiques est stable depuis 2 tentatives, on a tout chargé
-        if (previousHeight === currentHeight && stableCount >= 2) {
+        // Si la hauteur n'a pas changé ET le nombre de critiques est stable depuis 3 tentatives, on a tout chargé
+        if (previousHeight === currentHeight && stableCount >= 3) {
           console.log(`📜 Scroll terminé: ${currentReviewCount} critiques chargées après ${scrollAttempts} tentatives`);
           break;
         }
@@ -815,7 +868,18 @@ async function fetchSensCritiqueReviews(username) {
         });
       }
       
+      // Trier les critiques par date (les plus récentes en premier)
+      reviews.sort((a, b) => {
+        const dateA = a.created_at || a.updated_at || '';
+        const dateB = b.created_at || b.updated_at || '';
+        if (dateA && dateB) {
+          return new Date(dateB) - new Date(dateA);
+        }
+        return 0;
+      });
+      
       console.log(`✅ ${reviews.length} critiques trouvées`);
+      console.log(`📊 Exemples de dates: ${reviews.slice(0, 3).map(r => r.date_raw || r.date || 'N/A').join(', ')}`);
       resolve(reviews);
     } catch (error) {
       console.error('❌ Erreur Puppeteer:', error.message);
