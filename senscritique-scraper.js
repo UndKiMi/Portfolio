@@ -41,47 +41,11 @@ function parseReviewsFromHTML(html) {
         }
       }
       
-      // Chercher la date (après "Par KiMi_")
-      // Essayer plusieurs patterns pour la date, dans l'ordre de priorité
-      let dateText = null;
+      // NOUVELLE MÉTHODE: Utiliser la fonction dédiée pour extraire la date
+      const extendedContext = html.substring(Math.max(0, titleMatch.index - 1000), titleMatch.index + 4000);
+      const { dateText, dateISO } = extractDateFromHTML(html, context || extendedContext);
       
-      // Pattern 1: Chercher "Par KiMi_" suivi de la date
-      const parPattern = /Par\s+KiMi_[\s\S]{0,300}?(il y a \d+ (?:jour|jours|semaine|semaines|mois|an|ans)|le \d{1,2}\s+\w+\.?\s+\d{4})/i;
-      const parMatch = context.match(parPattern);
-      if (parMatch && parMatch[1]) {
-        dateText = parMatch[1].trim();
-        console.log(`📅 Date trouvée (après "Par KiMi_") pour "${title}": ${dateText}`);
-      }
-      
-      // Pattern 2: Chercher directement les dates dans le contexte
-      if (!dateText) {
-        const directPatterns = [
-          /(il y a \d+ (?:jour|jours|semaine|semaines|mois|an|ans))/i,
-          /(le \d{1,2}\s+\w+\.?\s+\d{4})/i
-        ];
-        
-        for (const pattern of directPatterns) {
-          const match = context.match(pattern);
-          if (match && match[1]) {
-            dateText = match[1].trim();
-            console.log(`📅 Date trouvée (directe) pour "${title}": ${dateText}`);
-            break;
-          }
-        }
-      }
-      
-      // Pattern 3: Chercher dans le HTML brut autour du titre
-      if (!dateText) {
-        const extendedContext = html.substring(Math.max(0, titleMatch.index - 1000), titleMatch.index + 4000);
-        const extendedPattern = /(il y a \d+ (?:jour|jours|semaine|semaines|mois|an|ans)|le \d{1,2}\s+\w+\.?\s+\d{4})/i;
-        const extendedMatch = extendedContext.match(extendedPattern);
-        if (extendedMatch && extendedMatch[1]) {
-          dateText = extendedMatch[1].trim();
-          console.log(`📅 Date trouvée (contexte étendu) pour "${title}": ${dateText}`);
-        }
-      }
-      
-      if (!dateText) {
+      if (!dateText && !dateISO) {
         console.log(`⚠️  Aucune date trouvée pour "${title}"`);
         console.log(`🔍 Contexte (500 premiers caractères): ${context.substring(0, 500)}`);
       }
@@ -101,17 +65,32 @@ function parseReviewsFromHTML(html) {
         
         // Parser la date
         let finalDate = null;
-        if (dateText) {
+        
+        // Priorité 1: Si on a une date ISO, l'utiliser directement
+        if (dateISO) {
+          const cleanedDate = dateISO.trim();
+          if (cleanedDate && /^\d{4}-\d{2}-\d{2}/.test(cleanedDate)) {
+            finalDate = cleanedDate;
+            console.log(`📅 Date ISO utilisée pour "${title}": ${finalDate}`);
+          }
+        }
+        
+        // Priorité 2: Si pas de date ISO, parser la date relative
+        if (!finalDate && dateText) {
           if (dateText.includes('il y a')) {
             finalDate = parseRelativeDate(dateText);
-            console.log(`📅 Date parsée (relative) pour "${title}": ${dateText} → ${finalDate}`);
+            if (finalDate) {
+              console.log(`📅 Date relative parsée pour "${title}": "${dateText}" → ${finalDate}`);
+            } else {
+              console.log(`⚠️  Impossible de parser la date "${dateText}" pour "${title}"`);
+            }
           } else if (dateText.match(/le \d{1,2}\s+\w+\.?\s+\d{4}/)) {
             finalDate = parseFrenchDate(dateText);
-            console.log(`📅 Date parsée (française) pour "${title}": ${dateText} → ${finalDate}`);
-          }
-          
-          if (!finalDate) {
-            console.log(`⚠️  Impossible de parser la date "${dateText}" pour "${title}"`);
+            if (finalDate) {
+              console.log(`📅 Date française parsée pour "${title}": "${dateText}" → ${finalDate}`);
+            } else {
+              console.log(`⚠️  Impossible de parser la date "${dateText}" pour "${title}"`);
+            }
           }
         }
         
@@ -146,9 +125,6 @@ function parseReviewsFromHTML(html) {
       for (const match of textMatches) {
         const title = match[1]?.trim();
         const content = match[2]?.trim();
-        const dateISO = match[3];
-        const dateTextMatch = match[0].match(/(il y a \d+ (?:jour|jours|semaine|semaines|mois|an|ans)|le \d{1,2}\s+\w+\.?\s+\d{4})/i);
-        const dateText = dateTextMatch ? dateTextMatch[1] : null;
         
         if (title && content && content.length > 20 && !title.includes('Critique de') && !title.includes('Sens Critique')) {
           // Chercher le lien associé
@@ -160,11 +136,23 @@ function parseReviewsFromHTML(html) {
           const ratingMatch = match[0].match(/(\d+)\s*[⭐★]/i) || match[0].match(/note[^>]*>(\d+)/i);
           const rating = ratingMatch ? parseInt(ratingMatch[1]) : null;
           
+          // NOUVELLE MÉTHODE: Utiliser la fonction dédiée pour extraire la date
+          const context = html.substring(Math.max(0, match.index - 500), match.index + match[0].length + 500);
+          const { dateText, dateISO } = extractDateFromHTML(html, context);
+          
           // Parser la date
           let finalDate = null;
+          
+          // Priorité 1: Si on a une date ISO, l'utiliser directement
           if (dateISO) {
-            finalDate = dateISO;
-          } else if (dateText) {
+            const cleanedDate = dateISO.trim();
+            if (cleanedDate && /^\d{4}-\d{2}-\d{2}/.test(cleanedDate)) {
+              finalDate = cleanedDate;
+            }
+          }
+          
+          // Priorité 2: Si pas de date ISO, parser la date relative
+          if (!finalDate && dateText) {
             if (dateText.includes('il y a')) {
               finalDate = parseRelativeDate(dateText);
             } else if (dateText.match(/le \d{1,2}\s+\w+\.?\s+\d{4}/)) {
@@ -175,7 +163,8 @@ function parseReviewsFromHTML(html) {
           reviews.push({
             title,
             content: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
-            date: finalDate || dateText || null,
+            date: dateText || null,
+            date_raw: dateText || null,
             created_at: finalDate || null,
             updated_at: finalDate || null,
             url,
@@ -199,12 +188,23 @@ function parseReviewsFromHTML(html) {
         const content = match[2]?.trim();
         
         if (title && content && content.length > 20 && !title.includes('Sens Critique')) {
-          // Chercher la date dans le contexte
+          // NOUVELLE MÉTHODE: Utiliser la fonction dédiée pour extraire la date
           const context = html.substring(Math.max(0, match.index - 200), match.index + match[0].length + 200);
-          const dateMatch = context.match(/(il y a \d+ (?:jour|jours|semaine|semaines|mois|an|ans)|le \d{1,2}\s+\w+\.?\s+\d{4}|datetime=["']([^"']+)["'])/i);
-          const dateText = dateMatch?.[1] || dateMatch?.[2];
+          const { dateText, dateISO } = extractDateFromHTML(html, context);
+          
+          // Parser la date
           let finalDate = null;
-          if (dateText) {
+          
+          // Priorité 1: Si on a une date ISO, l'utiliser directement
+          if (dateISO) {
+            const cleanedDate = dateISO.trim();
+            if (cleanedDate && /^\d{4}-\d{2}-\d{2}/.test(cleanedDate)) {
+              finalDate = cleanedDate;
+            }
+          }
+          
+          // Priorité 2: Si pas de date ISO, parser la date relative
+          if (!finalDate && dateText) {
             if (dateText.includes('il y a')) {
               finalDate = parseRelativeDate(dateText);
             } else if (dateText.match(/le \d{1,2}\s+\w+\.?\s+\d{4}/)) {
@@ -240,6 +240,123 @@ function parseReviewsFromHTML(html) {
   return reviews;
 }
 
+// Fonction pour extraire la date depuis du HTML brut (pour parseReviewsFromHTML)
+function extractDateFromHTML(html, context) {
+  let dateText = null;
+  let dateISO = null;
+  
+  // MÉTHODE 1: Chercher dans le contexte fourni
+  if (context) {
+    // Pattern amélioré pour "il y a X jour(s)" - accepter avec ou sans 's'
+    const relativeDateMatch = context.match(/il\s+y\s+a\s+(\d+)\s*(jour|jours|semaine|semaines|mois|an|ans)/i);
+    if (relativeDateMatch) {
+      dateText = relativeDateMatch[0].trim();
+      console.log(`📅 Date trouvée dans contexte: "${dateText}"`);
+    }
+    
+    // Chercher aussi après "Par KiMi_"
+    if (!dateText) {
+      const parPattern = /Par\s+KiMi_[\s\S]{0,500}?(il\s+y\s+a\s+\d+\s*(?:jour|jours|semaine|semaines|mois|an|ans))/i;
+      const parMatch = context.match(parPattern);
+      if (parMatch && parMatch[1]) {
+        dateText = parMatch[1].trim();
+        console.log(`📅 Date trouvée après "Par KiMi_": "${dateText}"`);
+      }
+    }
+  }
+  
+  // MÉTHODE 2: Chercher dans le HTML brut complet si pas trouvé
+  if (!dateText && html) {
+    const relativeDateMatch = html.match(/il\s+y\s+a\s+(\d+)\s*(jour|jours|semaine|semaines|mois|an|ans)/i);
+    if (relativeDateMatch) {
+      dateText = relativeDateMatch[0].trim();
+      console.log(`📅 Date trouvée dans HTML brut: "${dateText}"`);
+    }
+  }
+  
+  // MÉTHODE 3: Chercher des dates ISO dans les attributs datetime
+  if (!dateISO && html) {
+    const datetimeMatch = html.match(/datetime=["']([^"']+)["']/i);
+    if (datetimeMatch && /^\d{4}-\d{2}-\d{2}/.test(datetimeMatch[1])) {
+      dateISO = datetimeMatch[1];
+      console.log(`📅 Date ISO trouvée: "${dateISO}"`);
+    }
+  }
+  
+  return { dateText, dateISO };
+}
+
+// Fonction robuste pour extraire la date d'un élément de critique
+function extractDateFromElement(element) {
+  if (!element) return { dateText: null, dateISO: null };
+  
+  let dateText = null;
+  let dateISO = null;
+  
+  // MÉTHODE 1: Chercher dans tous les <p> de l'élément (méthode la plus fiable pour SensCritique)
+  const allPs = element.querySelectorAll('p');
+  for (const p of allPs) {
+    const pText = p.textContent.trim();
+    // Pattern pour "il y a X jour(s)" ou "il y a X jours"
+    const relativeDateMatch = pText.match(/il\s+y\s+a\s+(\d+)\s*(jour|jours|semaine|semaines|mois|an|ans)/i);
+    if (relativeDateMatch) {
+      dateText = relativeDateMatch[0].trim(); // Récupérer toute la phrase
+      console.log(`📅 Date trouvée dans <p>: "${dateText}"`);
+      break;
+    }
+  }
+  
+  // MÉTHODE 2: Chercher dans tous les <span> de l'élément
+  if (!dateText) {
+    const allSpans = element.querySelectorAll('span');
+    for (const span of allSpans) {
+      const spanText = span.textContent.trim();
+      const relativeDateMatch = spanText.match(/il\s+y\s+a\s+(\d+)\s*(jour|jours|semaine|semaines|mois|an|ans)/i);
+      if (relativeDateMatch) {
+        dateText = relativeDateMatch[0].trim();
+        console.log(`📅 Date trouvée dans <span>: "${dateText}"`);
+        break;
+      }
+    }
+  }
+  
+  // MÉTHODE 3: Chercher dans les balises <time> avec attribut datetime
+  if (!dateISO) {
+    const timeEl = element.querySelector('time[datetime]');
+    if (timeEl) {
+      dateISO = timeEl.getAttribute('datetime');
+      if (dateISO && /^\d{4}-\d{2}-\d{2}/.test(dateISO)) {
+        console.log(`📅 Date ISO trouvée dans <time>: "${dateISO}"`);
+      } else {
+        dateISO = null;
+      }
+    }
+  }
+  
+  // MÉTHODE 4: Chercher dans le HTML brut de l'élément (fallback)
+  if (!dateText && !dateISO) {
+    const elementHTML = element.outerHTML || '';
+    
+    // Chercher des attributs datetime
+    const datetimeMatch = elementHTML.match(/datetime=["']([^"']+)["']/i);
+    if (datetimeMatch && /^\d{4}-\d{2}-\d{2}/.test(datetimeMatch[1])) {
+      dateISO = datetimeMatch[1];
+      console.log(`📅 Date ISO trouvée dans HTML brut: "${dateISO}"`);
+    }
+    
+    // Chercher du texte de date relative dans le HTML
+    if (!dateText) {
+      const relativeDateMatch = elementHTML.match(/il\s+y\s+a\s+\d+\s*(jour|jours|semaine|semaines|mois|an|ans)/i);
+      if (relativeDateMatch) {
+        dateText = relativeDateMatch[0].trim();
+        console.log(`📅 Date trouvée dans HTML brut: "${dateText}"`);
+      }
+    }
+  }
+  
+  return { dateText, dateISO };
+}
+
 // Fonction pour parser les dates relatives de Sens Critique
 function parseRelativeDate(dateText) {
   if (!dateText) return null;
@@ -247,8 +364,8 @@ function parseRelativeDate(dateText) {
   const now = new Date();
   const lowerText = dateText.toLowerCase().trim();
   
-  // "Il y a X jour(s)"
-  const joursMatch = lowerText.match(/il y a (\d+)\s*jour(s)?/i);
+  // "Il y a X jour(s)" - accepter avec ou sans 's'
+  const joursMatch = lowerText.match(/il\s+y\s+a\s+(\d+)\s*jour(s)?/i);
   if (joursMatch) {
     const days = parseInt(joursMatch[1]);
     const date = new Date(now);
@@ -257,7 +374,7 @@ function parseRelativeDate(dateText) {
   }
   
   // "Il y a X semaines"
-  const semainesMatch = lowerText.match(/il y a (\d+)\s*semaine/i);
+  const semainesMatch = lowerText.match(/il\s+y\s+a\s+(\d+)\s*semaine(s)?/i);
   if (semainesMatch) {
     const weeks = parseInt(semainesMatch[1]);
     const date = new Date(now);
@@ -266,7 +383,7 @@ function parseRelativeDate(dateText) {
   }
   
   // "Il y a X mois"
-  const moisMatch = lowerText.match(/il y a (\d+)\s*mois/i);
+  const moisMatch = lowerText.match(/il\s+y\s+a\s+(\d+)\s*mois/i);
   if (moisMatch) {
     const months = parseInt(moisMatch[1]);
     const date = new Date(now);
@@ -275,7 +392,7 @@ function parseRelativeDate(dateText) {
   }
   
   // "Il y a X ans"
-  const ansMatch = lowerText.match(/il y a (\d+)\s*an/i);
+  const ansMatch = lowerText.match(/il\s+y\s+a\s+(\d+)\s*an(s)?/i);
   if (ansMatch) {
     const years = parseInt(ansMatch[1]);
     const date = new Date(now);
@@ -294,7 +411,7 @@ function parseRelativeDate(dateText) {
     return date.toISOString();
   }
   
-  // Essayer de parser une date au format français (JJ/MM/AAAA ou JJ mois AAAA)
+  // Essayer de parser une date au format français (JJ/MM/AAAA)
   const frenchDateMatch = dateText.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (frenchDateMatch) {
     const [, day, month, year] = frenchDateMatch;
@@ -380,8 +497,6 @@ async function fetchSensCritiqueReviews(username) {
             // Sélecteurs améliorés pour le nouveau HTML de SensCritique
             const titleEl = element.querySelector('a[data-testid="productReviewTitle"], h2[data-testid="reviewTitle"], h3, h4, .title, [class*="title"], a[class*="elco-title"]');
             const contentEl = element.querySelector('p[data-testid="linkify"], p, .content, [class*="content"], [class*="text"], [class*="elco-description"]');
-            // Recherche plus exhaustive des dates
-            const dateEl = element.querySelector('time[datetime], time[title], .date, [class*="date"], [class*="elco-date"], [class*="elco-meta-date"], [data-date]');
             const linkEl = element.querySelector('a[href*="/film/"], a[href*="/serie/"], a[href*="/jeu"], a[class*="elco-title"], a[data-testid="productReviewTitle"]');
             const ratingEl = element.querySelector('[data-testid="Rating"], [class*="rating"], [class*="note"], [aria-label*="note"], [class*="elco-rating"]');
             
@@ -389,79 +504,33 @@ async function fetchSensCritiqueReviews(username) {
               const title = titleEl.textContent.trim();
               const content = contentEl ? contentEl.textContent.trim() : '';
               
-              // Essayer d'extraire la date ISO depuis l'attribut datetime
-              let dateISO = null;
-              let dateText = '';
+              // NOUVELLE MÉTHODE: Utiliser la fonction dédiée pour extraire la date
+              const { dateText, dateISO } = extractDateFromElement(element);
               
-              if (dateEl) {
-                // Priorité 1: attribut datetime (date ISO)
-                dateISO = dateEl.getAttribute('datetime') || dateEl.getAttribute('data-date');
-                // Priorité 2: attribut title qui peut contenir la date
-                if (!dateISO) {
-                  dateISO = dateEl.getAttribute('title');
-                }
-                // Priorité 3: chercher dans les attributs data-*
-                if (!dateISO) {
-                  for (const attr of dateEl.attributes) {
-                    if (attr.name.startsWith('data-') && /^\d{4}-\d{2}-\d{2}/.test(attr.value)) {
-                      dateISO = attr.value;
-                      break;
-                    }
-                  }
-                }
-                // Texte affiché (pour fallback)
-                dateText = dateEl.textContent.trim();
-              }
-              
-              // Si toujours pas de date, chercher dans tous les <p> de l'élément
-              if (!dateISO && !dateText) {
-                const allPs = element.querySelectorAll('p');
-                for (const p of allPs) {
-                  const pText = p.textContent.trim();
-                  // Chercher du texte de date relative dans le <p>
-                  const relativeDateMatch = pText.match(/(il y a \d+\s*(jour|jours|semaine|semaines|mois|an|ans))/i);
-                  if (relativeDateMatch) {
-                    dateText = relativeDateMatch[1];
-                    console.log(`📅 Date trouvée dans <p>: "${dateText}"`);
-                    break;
-                  }
-                }
-              }
-              
-              // Si toujours pas de date, chercher dans le HTML brut de l'élément
-              if (!dateISO && !dateText) {
-                const elementHTML = element.outerHTML || '';
-                // Chercher des attributs datetime dans le HTML brut
-                const datetimeMatch = elementHTML.match(/datetime=["']([^"']+)["']/i);
-                if (datetimeMatch) {
-                  dateISO = datetimeMatch[1];
-                }
-                // Chercher des dates au format ISO dans les attributs data
-                const dataDateMatch = elementHTML.match(/data-date=["']([^"']+)["']/i);
-                if (dataDateMatch && /^\d{4}-\d{2}-\d{2}/.test(dataDateMatch[1])) {
-                  dateISO = dataDateMatch[1];
-                }
-                // Chercher du texte de date relative
-                const relativeDateMatch = elementHTML.match(/(il y a \d+\s*(jour|jours|semaine|semaines|mois|an|ans))/i);
-                if (relativeDateMatch) {
-                  dateText = relativeDateMatch[1];
-                }
-              }
-              
-              // Si on a une date ISO, l'utiliser directement
-              // Sinon, essayer de parser la date relative
+              // Parser la date
               let finalDate = null;
+              
+              // Priorité 1: Si on a une date ISO, l'utiliser directement
               if (dateISO) {
-                // Nettoyer et valider la date ISO
                 const cleanedDate = dateISO.trim();
                 if (cleanedDate && /^\d{4}-\d{2}-\d{2}/.test(cleanedDate)) {
                   finalDate = cleanedDate;
+                  console.log(`📅 Date ISO utilisée pour "${title}": ${finalDate}`);
                 }
               }
               
-              // Si pas de date ISO, parser la date relative
+              // Priorité 2: Si pas de date ISO, parser la date relative
               if (!finalDate && dateText) {
                 finalDate = parseRelativeDate(dateText);
+                if (finalDate) {
+                  console.log(`📅 Date relative parsée pour "${title}": "${dateText}" → ${finalDate}`);
+                } else {
+                  console.log(`⚠️  Impossible de parser la date "${dateText}" pour "${title}"`);
+                }
+              }
+              
+              if (!finalDate && !dateText) {
+                console.log(`⚠️  Aucune date trouvée pour "${title}"`);
               }
               
               const url = linkEl ? `https://www.senscritique.com${linkEl.getAttribute('href')}` : '';
