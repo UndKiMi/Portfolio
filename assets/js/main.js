@@ -402,21 +402,21 @@ function useFallbackGitHubData() {
       {
         name: '5Ghz_Cleaner',
         html_url: `${URLS.githubProfile}/5Ghz_Cleaner`,
-        updated_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        // Pas de date par défaut - sera affiché comme "non disponible"
         full_name: `${CONFIG.githubUsername}/5Ghz_Cleaner`,
         description: 'Optimisez et nettoyez votre installation Windows 11'
       },
       {
         name: 'Medal-Bot',
         html_url: `${URLS.githubProfile}/Medal-Bot`,
-        updated_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+        // Pas de date par défaut - sera affiché comme "non disponible"
         full_name: `${CONFIG.githubUsername}/Medal-Bot`,
         description: 'Bot Discord multifonction'
       },
       {
         name: 'K.Ring',
         html_url: `${URLS.githubProfile}/K.Ring`,
-        updated_at: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString(),
+        // Pas de date par défaut - sera affiché comme "non disponible"
         full_name: `${CONFIG.githubUsername}/K.Ring`,
         description: 'Bot Discord privé multifonctions'
       }
@@ -452,7 +452,14 @@ async function generateActivityTable(events, repos = []) {
     
     // NOUVELLE MÉTHODE: Utiliser la fonction dédiée pour extraire la date
     const dateISO = extractGitHubDate(repo);
-    const timeAgo = dateISO ? getTimeAgo(dateISO) : 'Date inconnue';
+    const timeAgo = dateISO ? getTimeAgo(dateISO) : null;
+    
+    // Log pour déboguer
+    if (dateISO) {
+      console.log(`📅 Repository "${repoName}": dateISO=${dateISO}, timeAgo=${timeAgo}`);
+    } else {
+      console.log(`⚠️  Repository "${repoName}": aucune date trouvée`);
+    }
 
     row.innerHTML = `
       <td>
@@ -463,7 +470,7 @@ async function generateActivityTable(events, repos = []) {
       <td class="commit-message">
         ${repo.description || 'Pas de description'}
       </td>
-      <td class="commit-time">${timeAgo || 'Date inconnue'}</td>
+      <td class="commit-time">${timeAgo || 'non disponible'}</td>
     `;
 
     tbody.appendChild(row);
@@ -519,37 +526,42 @@ async function fetchLatestCommit(repo, row) {
 
 // Fonction robuste pour extraire la date d'un repository GitHub
 function extractGitHubDate(repo, commit = null) {
-  let dateISO = null;
+  // Fonction helper pour valider une date
+  const isValidDate = (dateStr) => {
+    if (!dateStr || typeof dateStr !== 'string') return false;
+    const parsed = parseGitHubDate(dateStr);
+    return parsed !== null && !isNaN(parsed.getTime());
+  };
   
   // MÉTHODE 1: Utiliser la date du commit si disponible (la plus précise)
   if (commit && commit.commit && commit.commit.author && commit.commit.author.date) {
-    dateISO = commit.commit.author.date;
-    console.log(`📅 Date GitHub trouvée (commit): ${dateISO}`);
-    return dateISO;
+    const commitDate = commit.commit.author.date;
+    if (isValidDate(commitDate)) {
+      console.log(`📅 Date GitHub trouvée (commit): ${commitDate}`);
+      return commitDate;
+    }
   }
   
   // MÉTHODE 2: Utiliser pushed_at (date du dernier push)
-  if (repo.pushed_at) {
-    dateISO = repo.pushed_at;
-    console.log(`📅 Date GitHub trouvée (pushed_at): ${dateISO}`);
-    return dateISO;
+  if (repo.pushed_at && isValidDate(repo.pushed_at)) {
+    console.log(`📅 Date GitHub trouvée (pushed_at): ${repo.pushed_at}`);
+    return repo.pushed_at;
   }
   
   // MÉTHODE 3: Utiliser updated_at (date de dernière mise à jour)
-  if (repo.updated_at) {
-    dateISO = repo.updated_at;
-    console.log(`📅 Date GitHub trouvée (updated_at): ${dateISO}`);
-    return dateISO;
+  if (repo.updated_at && isValidDate(repo.updated_at)) {
+    console.log(`📅 Date GitHub trouvée (updated_at): ${repo.updated_at}`);
+    return repo.updated_at;
   }
   
   // MÉTHODE 4: Utiliser created_at (date de création) en dernier recours
-  if (repo.created_at) {
-    dateISO = repo.created_at;
-    console.log(`📅 Date GitHub trouvée (created_at): ${dateISO}`);
-    return dateISO;
+  if (repo.created_at && isValidDate(repo.created_at)) {
+    console.log(`📅 Date GitHub trouvée (created_at): ${repo.created_at}`);
+    return repo.created_at;
   }
   
-  console.log(`⚠️  Aucune date trouvée pour le repository "${repo.name || 'inconnu'}"`);
+  console.log(`⚠️  Aucune date valide trouvée pour le repository "${repo.name || 'inconnu'}"`);
+  console.log(`   pushed_at: ${repo.pushed_at || 'N/A'}, updated_at: ${repo.updated_at || 'N/A'}, created_at: ${repo.created_at || 'N/A'}`);
   return null;
 }
 
@@ -628,12 +640,14 @@ function getTimeAgo(date) {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h`;
 
-  // Moins d'une semaine
+  // Calculer les jours
   const days = Math.floor(hours / 24);
   if (days === 1) return 'Hier';
-  if (days < 7) return `${days}j`;
+  
+  // Afficher en jours jusqu'à 13 jours (pour éviter "1 sem" pour 7 jours)
+  if (days < 14) return `${days}j`;
 
-  // Moins d'un mois
+  // À partir de 14 jours, afficher en semaines
   const weeks = Math.floor(days / 7);
   if (weeks < 4) return `${weeks} sem`;
 
@@ -724,7 +738,7 @@ function updateUIWithSCData(data) {
         dateToFormat = parsedFromDate || review.date;
       }
       
-      const formattedDate = dateToFormat ? formatReviewDate(dateToFormat) : '';
+      const formattedDate = dateToFormat ? formatReviewDate(dateToFormat) : 'non disponible';
       const ratingStars = review.rating ? ` | ${review.rating}⭐` : '';
 
       reviewItem.innerHTML = `
@@ -732,7 +746,7 @@ function updateUIWithSCData(data) {
           <div class="sc-review-title">${review.title || 'Sans titre'}${ratingStars}</div>
         </div>
         <div class="sc-review-comment">${review.content || review.comment || 'Pas de commentaire'}</div>
-        ${formattedDate ? `<div class="sc-review-date">${formattedDate}</div>` : ''}
+        <div class="sc-review-date">${formattedDate}</div>
       `;
 
       reviewsContainer.appendChild(reviewItem);
@@ -748,7 +762,7 @@ function updateUIWithSCData(data) {
 
 function formatReviewDate(dateString) {
   if (!dateString) {
-    return '';
+    return 'non disponible';
   }
   
   // SOLUTION ALTERNATIVE: Toujours parser avec parseDateFromText d'abord
@@ -768,8 +782,8 @@ function formatReviewDate(dateString) {
     return directResult;
   }
   
-  // En dernier recours, retourner le texte original
-  return dateString;
+  // En dernier recours, retourner "non disponible" au lieu du texte original
+  return 'non disponible';
 }
 
 // SOLUTION ALTERNATIVE: Fonction unifiée pour parser n'importe quel format de date
@@ -1020,21 +1034,21 @@ function useFallbackData(fallbackData) {
     {
       title: 'The Rain',
       content: 'Honnêtement, j\'ai vraiment accroché à cette série. Le concept du virus transmis par la pluie est super original...',
-      date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      // Pas de date par défaut - sera affiché comme "non disponible"
       url: `${URLS.scProfile}/critiques`,
       rating: 9
     },
     {
       title: 'Nouvelle École',
       content: 'Franchement, c\'est juste nul. Tout sonne faux, surjoué, trop de drama pour pas grand-chose...',
-      date: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
+      // Pas de date par défaut - sera affiché comme "non disponible"
       url: `${URLS.scProfile}/critiques`,
       rating: 3
     },
     {
       title: 'Astérix & Obélix : Le Combat des chefs',
       content: 'Franchement, j\'ai passé un bon moment devant ce petit cartoon, sans que ce soit une claque non plus...',
-      date: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+      // Pas de date par défaut - sera affiché comme "non disponible"
       url: `${URLS.scProfile}/critiques`,
       rating: 7
     }
@@ -1058,7 +1072,7 @@ function useFallbackData(fallbackData) {
         <div class="sc-review-title">${review.title}${ratingStars}</div>
       </div>
       <div class="sc-review-comment">${review.content}</div>
-      ${formattedDate ? `<div class="sc-review-date">${formattedDate}</div>` : ''}
+      <div class="sc-review-date">${formattedDate}</div>
     `;
 
     reviewsContainer.appendChild(reviewItem);
