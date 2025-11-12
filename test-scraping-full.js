@@ -133,3 +133,4 @@ if (article) {
   console.log('  Note (Rating):', ratingDiv ? ratingDiv.textContent.trim() : 'NON TROUVÉ');
 }
 
+
