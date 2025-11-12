@@ -1,6 +1,178 @@
 const https = require('https');
 const { JSDOM } = require('jsdom');
 
+// Fonction pour parser les critiques depuis le HTML brut
+function parseReviewsFromHTML(html) {
+  const reviews = [];
+  
+  try {
+    // Pattern spécifique pour Sens Critique: "Critique de [Titre] par [User]"
+    // Structure: "Critique de [Titre] par KiMi_" + contenu + "Par KiMi_" + date
+    // On cherche d'abord les titres, puis le contenu et la date dans le contexte
+    const titlePattern = /(?:<h[23][^>]*>|##\s*)Critique de ([^<\n]+?)\s+par\s+KiMi_/gi;
+    const titleMatches = [...html.matchAll(titlePattern)];
+    
+    console.log(`🔍 ${titleMatches.length} titres de critiques trouvés`);
+    
+    // Pour chaque titre trouvé, chercher le contenu et la date dans le contexte suivant
+    for (const titleMatch of titleMatches) {
+      const title = titleMatch[1]?.trim();
+      if (!title) continue;
+      
+      // Chercher dans les 3000 caractères suivant le titre
+      const startIndex = titleMatch.index + titleMatch[0].length;
+      const context = html.substring(startIndex, Math.min(startIndex + 3000, html.length));
+      
+      // Extraire le contenu (texte entre le titre et "Lire la critique" ou "Par KiMi_")
+      const contentMatch = context.match(/([^<]{30,500}?)(?:Lire la critique|Par\s+KiMi_|<\/p>|<\/div>)/i);
+      const content = contentMatch ? contentMatch[1].trim() : null;
+      
+      // Chercher la date (après "Par KiMi_")
+      const dateMatch = context.match(/Par\s+KiMi_[\s\S]{0,100}?(il y a \d+ (?:jour|jours|semaine|semaines|mois|an|ans)|le \d{1,2}\s+\w+\.?\s+\d{4})/i);
+      const dateText = dateMatch ? dateMatch[1] : null;
+      
+      if (title && content && content.length > 20) {
+        // Chercher le lien associé
+        const linkMatch = context.match(/href="(\/[^"]*\/(?:film|serie|jeu|livre)\/[^"]+)"/i) || 
+                          html.substring(Math.max(0, titleMatch.index - 500), titleMatch.index + 500)
+                            .match(/href="(\/[^"]*\/(?:film|serie|jeu|livre)\/[^"]+)"/i);
+        const url = linkMatch ? `https://www.senscritique.com${linkMatch[1]}` : null;
+        
+        // Chercher la note (peut être avant ou après le titre)
+        const ratingMatch = context.match(/(\d+)\s*(?:⭐|★|note)/i) || 
+                           html.substring(Math.max(0, titleMatch.index - 200), titleMatch.index + 200)
+                             .match(/(\d+)\s*(?:⭐|★|note)/i);
+        const rating = ratingMatch ? parseInt(ratingMatch[1]) : null;
+        
+        // Parser la date
+        let finalDate = null;
+        if (dateText) {
+          if (dateText.includes('il y a')) {
+            finalDate = parseRelativeDate(dateText);
+          } else if (dateText.match(/le \d{1,2}\s+\w+\.?\s+\d{4}/)) {
+            finalDate = parseFrenchDate(dateText);
+          }
+        }
+        
+        // Ajouter la critique
+        reviews.push({
+          title,
+          content: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
+          date: finalDate || dateText || null,
+          created_at: finalDate || null,
+          updated_at: finalDate || null,
+          url,
+          rating
+        });
+      }
+    }
+    
+    // Si on n'a rien trouvé, essayer un pattern plus général
+    if (reviews.length === 0) {
+      // Essayer de trouver des critiques avec des patterns de texte
+      // Pattern principal: Titre + Contenu + Date
+      const reviewTextPattern = /(?:<h[23][^>]*>|<a[^>]*>)([^<]{10,100})(?:<\/h[23]>|<\/a>)[\s\S]{0,500}?(?:<p[^>]*>|<div[^>]*>)([^<]{20,300})(?:<\/p>|<\/div>)[\s\S]{0,200}?(?:il y a \d+ (?:jour|jours|semaine|semaines|mois|an|ans)|le \d{1,2}\s+\w+\.?\s+\d{4}|datetime=["']([^"']+)["'])/gi;
+      const textMatches = [...html.matchAll(reviewTextPattern)];
+      
+      console.log(`🔍 ${textMatches.length} matches trouvés avec le pattern principal`);
+    
+      // Traiter les matches de texte
+      for (const match of textMatches) {
+        const title = match[1]?.trim();
+        const content = match[2]?.trim();
+        const dateISO = match[3];
+        const dateTextMatch = match[0].match(/(il y a \d+ (?:jour|jours|semaine|semaines|mois|an|ans)|le \d{1,2}\s+\w+\.?\s+\d{4})/i);
+        const dateText = dateTextMatch ? dateTextMatch[1] : null;
+        
+        if (title && content && content.length > 20 && !title.includes('Critique de') && !title.includes('Sens Critique')) {
+          // Chercher le lien associé
+          const linkMatch = html.substring(Math.max(0, match.index - 500), match.index + match[0].length + 500)
+            .match(/href="(\/[^"]*\/(?:film|serie|jeu|livre)\/[^"]+)"/i);
+          const url = linkMatch ? `https://www.senscritique.com${linkMatch[1]}` : null;
+          
+          // Chercher la note
+          const ratingMatch = match[0].match(/(\d+)\s*[⭐★]/i) || match[0].match(/note[^>]*>(\d+)/i);
+          const rating = ratingMatch ? parseInt(ratingMatch[1]) : null;
+          
+          // Parser la date
+          let finalDate = null;
+          if (dateISO) {
+            finalDate = dateISO;
+          } else if (dateText) {
+            if (dateText.includes('il y a')) {
+              finalDate = parseRelativeDate(dateText);
+            } else if (dateText.match(/le \d{1,2}\s+\w+\.?\s+\d{4}/)) {
+              finalDate = parseFrenchDate(dateText);
+            }
+          }
+          
+          reviews.push({
+            title,
+            content: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
+            date: finalDate || dateText || null,
+            created_at: finalDate || null,
+            updated_at: finalDate || null,
+            url,
+            rating
+          });
+        }
+      }
+    }
+    
+    // Si on n'a toujours rien trouvé, essayer une approche plus simple
+    if (reviews.length === 0) {
+      console.log('⚠️  Aucune critique trouvée avec le pattern principal, essai avec pattern simple...');
+      // Chercher simplement les titres suivis de contenu
+      const simplePattern = /<h[23][^>]*>([^<]{10,100})<\/h[23]>[\s\S]{0,1000}?<p[^>]*>([^<]{30,300})<\/p>/gi;
+      const simpleMatches = [...html.matchAll(simplePattern)];
+      
+      console.log(`🔍 ${simpleMatches.length} matches trouvés avec le pattern simple`);
+      
+      for (const match of simpleMatches) {
+        const title = match[1]?.trim();
+        const content = match[2]?.trim();
+        
+        if (title && content && content.length > 20 && !title.includes('Sens Critique')) {
+          // Chercher la date dans le contexte
+          const context = html.substring(Math.max(0, match.index - 200), match.index + match[0].length + 200);
+          const dateMatch = context.match(/(il y a \d+ (?:jour|jours|semaine|semaines|mois|an|ans)|le \d{1,2}\s+\w+\.?\s+\d{4}|datetime=["']([^"']+)["'])/i);
+          const dateText = dateMatch?.[1] || dateMatch?.[2];
+          let finalDate = null;
+          if (dateText) {
+            if (dateText.includes('il y a')) {
+              finalDate = parseRelativeDate(dateText);
+            } else if (dateText.match(/le \d{1,2}\s+\w+\.?\s+\d{4}/)) {
+              finalDate = parseFrenchDate(dateText);
+            } else if (/^\d{4}-\d{2}-\d{2}/.test(dateText)) {
+              finalDate = dateText;
+            }
+          }
+          
+          // Chercher le lien
+          const linkMatch = context.match(/href="(\/[^"]*\/(?:film|serie|jeu)\/[^"]+)"/i);
+          const url = linkMatch ? `https://www.senscritique.com${linkMatch[1]}` : null;
+          
+          reviews.push({
+            title,
+            content: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
+            date: finalDate || dateText || null,
+            created_at: finalDate || null,
+            updated_at: finalDate || null,
+            url,
+            rating: null
+          });
+        }
+      }
+    }
+    
+    console.log(`✅ ${reviews.length} critiques trouvées via parsing HTML brut`);
+  } catch (error) {
+    console.error('❌ Erreur parsing HTML brut:', error.message);
+  }
+  
+  return reviews;
+}
+
 // Fonction pour parser les dates relatives de Sens Critique
 function parseRelativeDate(dateText) {
   if (!dateText) return null;
@@ -65,6 +237,44 @@ function parseRelativeDate(dateText) {
   return null;
 }
 
+// Fonction pour parser les dates au format français "le 4 nov. 2025"
+function parseFrenchDate(dateText) {
+  if (!dateText) return null;
+  
+  const months = {
+    'jan': 0, 'janv': 0, 'janvier': 0,
+    'fév': 1, 'févr': 1, 'février': 1,
+    'mar': 2, 'mars': 2,
+    'avr': 3, 'avril': 3,
+    'mai': 4,
+    'jun': 5, 'juin': 5,
+    'jul': 6, 'juil': 6, 'juillet': 6,
+    'aoû': 7, 'août': 7,
+    'sep': 8, 'sept': 8, 'septembre': 8,
+    'oct': 9, 'octobre': 9,
+    'nov': 10, 'novembre': 10,
+    'déc': 11, 'décembre': 11
+  };
+  
+  // Pattern: "le 4 nov. 2025" ou "le 4 novembre 2025"
+  const match = dateText.match(/le\s+(\d{1,2})\s+(\w+)\.?\s+(\d{4})/i);
+  if (match) {
+    const day = parseInt(match[1]);
+    const monthName = match[2].toLowerCase();
+    const year = parseInt(match[3]);
+    
+    const month = months[monthName];
+    if (month !== undefined) {
+      const date = new Date(year, month, day);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString();
+      }
+    }
+  }
+  
+  return null;
+}
+
 async function fetchSensCritiqueReviews(username) {
   return new Promise((resolve, reject) => {
     const url = `https://www.senscritique.com/${username}/critiques`;
@@ -90,20 +300,15 @@ async function fetchSensCritiqueReviews(username) {
           const document = dom.window.document;
           const reviews = [];
           
-          // Recherche plus large des éléments de critiques
-          const reviewElements = document.querySelectorAll('.elco-collection-item, .ProductListItem, [class*="review"], [class*="critique"], [class*="elco-collection"]');
+          // Essayer plusieurs sélecteurs CSS pour trouver les critiques
+          let reviewElements = document.querySelectorAll('.elco-collection-item, .ProductListItem, [class*="review"], [class*="critique"], [class*="elco-collection"]');
           
-          // Si aucun élément trouvé, essayer de chercher dans le HTML brut
+          // Si aucun élément trouvé, essayer d'autres sélecteurs
           if (reviewElements.length === 0) {
-            console.log('⚠️  Aucun élément de critique trouvé avec les sélecteurs standards, recherche alternative...');
-            // Chercher les critiques dans le HTML brut avec regex
-            const reviewRegex = /<article[^>]*>[\s\S]*?<\/article>/gi;
-            const articleMatches = data.match(reviewRegex);
-            if (articleMatches) {
-              console.log(`✅ ${articleMatches.length} articles trouvés via regex`);
-            }
+            reviewElements = document.querySelectorAll('article, [data-testid*="review"], [class*="Review"], [class*="Critique"], [class*="elco"]');
           }
           
+          // Traiter les éléments trouvés avec les sélecteurs CSS
           reviewElements.forEach((element) => {
             const titleEl = element.querySelector('h3, h4, .title, [class*="title"], a[class*="elco-title"]');
             const contentEl = element.querySelector('p, .content, [class*="content"], [class*="text"], [class*="elco-description"]');
@@ -201,7 +406,25 @@ async function fetchSensCritiqueReviews(username) {
             }
           });
           
-          console.log(`✅ ${reviews.length} critiques trouvées`);
+          // Si on n'a pas trouvé de critiques avec les sélecteurs CSS, essayer le parsing HTML brut
+          if (reviews.length === 0) {
+            console.log('⚠️  Aucune critique trouvée avec les sélecteurs CSS, recherche dans le HTML brut...');
+            const htmlReviews = parseReviewsFromHTML(data);
+            reviews.push(...htmlReviews);
+          } else {
+            console.log(`✅ ${reviews.length} critiques trouvées avec les sélecteurs CSS`);
+            // Essayer aussi le parsing HTML brut pour compléter (éviter les doublons)
+            const htmlReviews = parseReviewsFromHTML(data);
+            // Ajouter seulement les critiques qui ne sont pas déjà présentes
+            for (const htmlReview of htmlReviews) {
+              const isDuplicate = reviews.some(r => r.title === htmlReview.title && r.content.substring(0, 50) === htmlReview.content.substring(0, 50));
+              if (!isDuplicate) {
+                reviews.push(htmlReview);
+              }
+            }
+          }
+          
+          console.log(`✅ ${reviews.length} critiques trouvées au total`);
           resolve(reviews);
           
         } catch (error) {
