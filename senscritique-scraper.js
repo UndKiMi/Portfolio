@@ -669,16 +669,97 @@ async function fetchSensCritiqueProfile(username) {
             stats.livres = 0;
           }
           
+          // Extraire le genre, la localisation et l'âge depuis le HTML
+          let gender = 'Homme';
+          let location = 'France';
+          let age = null;
+          
+          // Chercher le genre et la localisation dans le HTML
+          // Pattern: "Homme | France" ou "Femme | Paris" etc.
+          // Chercher dans plusieurs endroits du HTML
+          const bioPatterns = [
+            /(Homme|Femme|Autre)\s*\|\s*([^<\n|]+)/i,
+            /<p[^>]*>([^<]*Homme|Femme|Autre[^<]*)\s*\|\s*([^<]+)<\/p>/i,
+            /class="[^"]*bio[^"]*"[^>]*>([^<]*Homme|Femme|Autre[^<]*)\s*\|\s*([^<]+)/i
+          ];
+          
+          for (const pattern of bioPatterns) {
+            const bioMatch = data.match(pattern);
+            if (bioMatch) {
+              // Extraire le genre
+              const genderMatch = bioMatch[0].match(/(Homme|Femme|Autre)/i);
+              if (genderMatch) {
+                gender = genderMatch[1];
+              }
+              
+              // Extraire la localisation (après le pipe)
+              const locationMatch = bioMatch[0].match(/\|\s*([^<\n|]+)/i);
+              if (locationMatch) {
+                location = locationMatch[1].trim();
+                // Nettoyer la localisation (enlever les espaces en trop, etc.)
+                location = location.replace(/\s+/g, ' ').trim();
+              }
+              
+              if (gender !== 'Homme' || location !== 'France') {
+                console.log(`✅ Genre et localisation trouvés: ${gender} | ${location}`);
+                break;
+              }
+            }
+          }
+          
+          // Chercher l'âge dans le HTML
+          // Pattern: "ans" ou "âge" suivi d'un nombre, ou format "XX ans"
+          const agePatterns = [
+            /(\d+)\s*ans/i,
+            /âge[:\s]+(\d+)/i,
+            /(\d{2})\s*ans/i
+          ];
+          
+          for (const pattern of agePatterns) {
+            const ageMatch = data.match(pattern);
+            if (ageMatch && ageMatch[1]) {
+              const extractedAge = parseInt(ageMatch[1]);
+              // Valider que l'âge est raisonnable (entre 13 et 120 ans)
+              if (extractedAge >= 13 && extractedAge <= 120) {
+                age = extractedAge;
+                console.log(`✅ Âge trouvé: ${age} ans`);
+                break;
+              }
+            }
+          }
+          
+          // Si l'âge n'est pas trouvé, chercher dans les métadonnées ou autres patterns
+          if (!age) {
+            // Chercher dans les balises meta ou data-*
+            const metaAgeMatch = data.match(/data-age=["'](\d+)["']/i) || 
+                                 data.match(/age["']?\s*:\s*["']?(\d+)/i);
+            if (metaAgeMatch && metaAgeMatch[1]) {
+              const extractedAge = parseInt(metaAgeMatch[1]);
+              if (extractedAge >= 13 && extractedAge <= 120) {
+                age = extractedAge;
+                console.log(`✅ Âge trouvé (meta): ${age} ans`);
+              }
+            }
+          }
+          
           const profile = {
             username: profileUsername,
-            location: 'France',
-            gender: 'Homme',
+            location: location,
+            gender: gender,
+            age: age,
             stats,
             collections,
             reviews,
             profileUrl: url,
             avatar: 'https://media.senscritique.com/media/media/000022812759/48x48/avatar.jpg'
           };
+          
+          console.log('✅ Informations profil extraites:', {
+            username: profile.username,
+            gender: profile.gender,
+            location: profile.location,
+            age: profile.age || 'Non trouvé'
+          });
           
           console.log('✅ Scraping Sens Critique réussi:', {
             username: profile.username,

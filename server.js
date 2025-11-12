@@ -292,6 +292,7 @@ app.get('/senscritique', async (req, res) => {
         username: 'KiMi_',
         gender: 'Homme',
         location: 'France',
+        age: null,
         stats: { films: 32, series: 17, jeux: 19, livres: 0, total: 68 },
         collections: [
           { title: 'Ratatouille', image: 'https://media.senscritique.com/media/000007069038/300/ratatouille.jpg' },

@@ -557,7 +557,13 @@ async function fetchSensCritiqueData() {
 function updateUIWithSCData(data) {
   const { sc } = state.elements;
   sc.username.textContent = data.username || CONFIG.scUsername;
-  sc.bio.textContent = `${data.gender || 'Homme'} | ${data.location || 'France'}`;
+  
+  // Construire le texte de la bio avec genre, localisation et âge
+  let bioText = `${data.gender || 'Homme'} | ${data.location || 'France'}`;
+  if (data.age) {
+    bioText += ` | ${data.age} ans`;
+  }
+  sc.bio.textContent = bioText;
   sc.movies.textContent = data.stats?.films || 0;
   sc.series.textContent = data.stats?.series || 0;
   sc.games.textContent = data.stats?.jeux || 0;
