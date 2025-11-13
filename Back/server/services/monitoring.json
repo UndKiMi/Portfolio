@@ -1,0 +1,29 @@
+{
+  "totalRequests": 5,
+  "scrapingRequests": 4,
+  "cacheHits": 1,
+  "errors": [],
+  "lastScrapingTimes": [
+    {
+      "timestamp": "2025-11-13T17:02:35.681Z",
+      "duration": 7.99,
+      "reviewsCount": 6
+    },
+    {
+      "timestamp": "2025-11-13T17:02:37.123Z",
+      "duration": 7.52,
+      "reviewsCount": 6
+    },
+    {
+      "timestamp": "2025-11-13T17:02:38.176Z",
+      "duration": 7.98,
+      "reviewsCount": 6
+    },
+    {
+      "timestamp": "2025-11-13T17:02:38.378Z",
+      "duration": 8.01,
+      "reviewsCount": 6
+    }
+  ],
+  "alerts": []
+}
