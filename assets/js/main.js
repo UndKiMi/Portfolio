@@ -944,8 +944,8 @@ async function loadMoreReviews() {
   }
   
   try {
-    // Récupérer TOUTES les critiques depuis le cache
-    const cachedData = getCachedData('senscritique_data');
+    // Récupérer TOUTES les critiques depuis le cache localStorage
+    const cachedData = window.CacheManager ? window.CacheManager.get('senscritique_data') : null;
     
     if (cachedData && cachedData.reviews) {
       CONFIG.currentPage++;
@@ -957,6 +957,7 @@ async function loadMoreReviews() {
       if (nextPageReviews.length > 0) {
         // Ajouter les nouvelles critiques
         displayRecentReviews(nextPageReviews, true);
+        console.log(`✅ [Pagination] Page ${CONFIG.currentPage} chargée depuis le cache (${nextPageReviews.length} critiques)`);
       } else {
         console.log('ℹ️  [SensCritique] Aucune critique supplémentaire dans le cache');
         if (button) {
