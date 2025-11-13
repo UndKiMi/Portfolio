@@ -952,14 +952,33 @@ function escapeHtml(text) {
 }
 
 /**
- * Nettoie le HTML d'un texte (supprime toutes les balises HTML)
+ * Nettoie strictement le HTML d'un texte (supprime toutes les balises et attributs HTML)
  */
 function cleanHTML(text) {
   if (!text) return '';
-  // Supprimer toutes les balises HTML
+  
+  // Supprimer TOUTES les balises HTML
   let cleaned = text.replace(/<[^>]*>/g, '').trim();
+  
+  // Supprimer les attributs HTML résiduels
+  cleaned = cleaned.replace(/class="[^"]*"/g, '');
+  cleaned = cleaned.replace(/class=\\?"[^"]*\\?"/g, '');
+  cleaned = cleaned.replace(/data-testid="[^"]*"/g, '');
+  cleaned = cleaned.replace(/data-testid=\\?"[^"]*\\?"/g, '');
+  cleaned = cleaned.replace(/href="[^"]*"/g, '');
+  cleaned = cleaned.replace(/href=\\?"[^"]*\\?"/g, '');
+  
+  // Supprimer les backslashes échappés
+  cleaned = cleaned.replace(/\\\\/g, '');
+  
+  // Nettoyer "a " ou "a class" au début
+  if (cleaned.startsWith('a ') || cleaned.startsWith('a class')) {
+    return ''; // Contenu invalide
+  }
+  
   // Nettoyer les espaces multiples
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  
   return cleaned;
 }
 

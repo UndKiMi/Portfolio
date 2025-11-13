@@ -3,6 +3,41 @@ const { JSDOM } = require('jsdom');
 const puppeteer = require('puppeteer');
 
 // ============================================================================
+// FONCTIONS UTILITAIRES DE NETTOYAGE HTML
+// ============================================================================
+
+/**
+ * Nettoie strictement le HTML d'un texte (supprime toutes les balises et attributs HTML)
+ */
+function cleanHTMLStrict(text) {
+  if (!text) return '';
+  
+  // Supprimer TOUTES les balises HTML
+  let cleaned = text.replace(/<[^>]*>/g, '').trim();
+  
+  // Supprimer les attributs HTML résiduels
+  cleaned = cleaned.replace(/class="[^"]*"/g, '');
+  cleaned = cleaned.replace(/class=\\?"[^"]*\\?"/g, '');
+  cleaned = cleaned.replace(/data-testid="[^"]*"/g, '');
+  cleaned = cleaned.replace(/data-testid=\\?"[^"]*\\?"/g, '');
+  cleaned = cleaned.replace(/href="[^"]*"/g, '');
+  cleaned = cleaned.replace(/href=\\?"[^"]*\\?"/g, '');
+  
+  // Supprimer les backslashes échappés
+  cleaned = cleaned.replace(/\\\\/g, '');
+  
+  // Nettoyer "a " ou "a class" au début
+  if (cleaned.startsWith('a ') || cleaned.startsWith('a class')) {
+    return ''; // Contenu invalide
+  }
+  
+  // Nettoyer les espaces multiples
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  
+  return cleaned;
+}
+
+// ============================================================================
 // SYSTÈME DE CACHE
 // ============================================================================
 
@@ -730,7 +765,8 @@ async function fetchSensCritiqueReviews(username) {
       let previousHeight = 0;
       let currentHeight = await page.evaluate(() => document.body.scrollHeight);
       let scrollAttempts = 0;
-      const maxScrollAttempts = 5; // Réduit à 5 au lieu de 30 pour Railway
+      const maxScrollAttempts = 50; // Augmenté pour récupérer toutes les critiques (68)
+      const scrollDelay = 1000; // Délai entre scrolls
       let previousReviewCount = 0;
       let stableCount = 0; // Compteur pour vérifier que le nombre est stable
       
@@ -786,8 +822,8 @@ async function fetchSensCritiqueReviews(username) {
           window.scrollTo(0, document.body.scrollHeight);
         });
         
-        // Attendre que le contenu se charge (timeout réduit à 500ms au lieu de 1500ms)
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Attendre que le contenu se charge (utiliser scrollDelay)
+        await new Promise(resolve => setTimeout(resolve, scrollDelay));
         
         // Essayer de cliquer sur le bouton "Charger plus" à nouveau (attente réduite)
         try {
@@ -836,11 +872,19 @@ async function fetchSensCritiqueReviews(username) {
           previousReviewCount = currentReviewCount;
           console.log(`📊 [Scraper] Scroll ${scrollAttempts}/${maxScrollAttempts}: ${currentReviewCount} critiques`);
         } else {
+          // Pas de nouvelles critiques, incrémenter le compteur
           stableCount++;
         }
         
+        // Détection améliorée : arrêter si pas de nouvelles critiques après 3 tentatives
+        if (stableCount >= 3) {
+          console.log(`📊 [Scraper] Fin détectée : pas de nouvelles critiques après 3 tentatives`);
+          console.log(`✅ [Scraper] Scroll terminé: ${currentReviewCount} critiques après ${scrollAttempts} tentatives`);
+          break;
+        }
+        
         // Si la hauteur n'a pas changé ET le nombre de critiques est stable depuis 2 tentatives, on a tout chargé
-        if (previousHeight === currentHeight && stableCount >= 2) {
+        if (previousHeight === currentHeight && stableCount >= 2 && currentReviewCount === previousReviewCount) {
           console.log(`✅ [Scraper] Scroll terminé: ${currentReviewCount} critiques après ${scrollAttempts} tentatives`);
           break;
         }
@@ -1188,27 +1232,87 @@ async function fetchSensCritiqueReviews(username) {
         });
       }
       
-      // Trier les critiques par date (les plus récentes en premier)
-      reviews.sort((a, b) => {
-        const dateA = a.created_at || a.updated_at || '';
-        const dateB = b.created_at || b.updated_at || '';
-        if (dateA && dateB) {
-          return new Date(dateB) - new Date(dateA);
-        }
-        return 0;
-      });
-      
       // S'assurer qu'on retourne toujours un tableau
       if (!Array.isArray(reviews)) {
         console.warn('⚠️  reviews n\'est pas un tableau dans fetchSensCritiqueReviews, conversion...');
         reviews = [];
       }
       
-      console.log(`✅ [Scraper] ${reviews.length} critique(s) extraite(s)`);
+      console.log(`📊 [Scraper] ${reviews.length} critiques brutes extraites`);
+      
+      // Nettoyer chaque critique avec cleanHTMLStrict
+      reviews = reviews.map(review => {
+        return {
+          ...review,
+          title: cleanHTMLStrict(review.title || ''),
+          content: cleanHTMLStrict(review.content || ''),
+          date: review.date || '',
+          date_raw: review.date_raw || '',
+          url: review.url || null,
+          rating: review.rating || null
+        };
+      });
+      
+      // Filtrer les critiques invalides
+      reviews = reviews.filter(review => {
+        // Exclure si le titre ou contenu contient encore du HTML
+        if (review.content.includes('<') || 
+            review.content.includes('class=') || 
+            review.content.includes('href=') ||
+            review.content.includes('data-testid') ||
+            review.title.includes('<') ||
+            review.title.includes('class=')) {
+          console.warn(`⚠️ [Scraper] Critique "${review.title}" exclue (HTML résiduel détecté)`);
+          return false;
+        }
+        
+        // Exclure si le contenu est vide ou trop court
+        if (!review.content || review.content.length < 10) {
+          console.warn(`⚠️ [Scraper] Critique "${review.title}" exclue (contenu vide/trop court)`);
+          return false;
+        }
+        
+        // Exclure si le titre est vide
+        if (!review.title || review.title.length < 2) {
+          console.warn(`⚠️ [Scraper] Critique sans titre exclue`);
+          return false;
+        }
+        
+        return true;
+      });
+      
+      // Dédupliquer par titre
+      const uniqueReviews = new Map();
+      reviews.forEach(review => {
+        if (!uniqueReviews.has(review.title)) {
+          uniqueReviews.set(review.title, review);
+        }
+      });
+      reviews = Array.from(uniqueReviews.values());
+      
+      // Trier les critiques par date (les plus récentes en premier) - APRÈS nettoyage et déduplication
+      reviews.sort((a, b) => {
+        const dateA = a.created_at || a.updated_at || '';
+        const dateB = b.created_at || b.updated_at || '';
+        if (dateA && dateB) {
+          return new Date(dateB) - new Date(dateA);
+        }
+        // Si une date manque, mettre celle sans date à la fin
+        if (dateA && !dateB) return -1;
+        if (!dateA && dateB) return 1;
+        return 0;
+      });
+      
+      console.log(`✅ [Scraper] ${reviews.length} critiques propres après nettoyage et déduplication`);
+      
+      // Log des 3 premières critiques pour vérification
       if (reviews.length > 0) {
-        console.log(`📊 [Scraper] Exemples de dates: ${reviews.slice(0, 3).map(r => r.date_raw || r.date || 'N/A').join(', ')}`);
-        console.log(`📊 [Scraper] Premières critiques: ${reviews.slice(0, 3).map(r => r.title).join(', ')}`);
+        console.log(`📊 [Scraper] Exemples de critiques propres :`);
+        reviews.slice(0, 3).forEach((r, i) => {
+          console.log(`  ${i+1}. "${r.title}" (${r.content.substring(0, 50)}...)`);
+        });
       }
+      
       resolve(reviews);
     } catch (error) {
       console.error('❌ [Scraper] Erreur Puppeteer:', error.message);
