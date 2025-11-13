@@ -493,6 +493,10 @@ function renderProjects(repos) {
     // Couleur du langage
     const langColor = getLanguageColor(repo.language);
     
+    // Vérifier si l'utilisateur n'est pas l'auteur principal
+    const isNotMainAuthor = repo.owner && repo.owner.login && repo.owner.login.toLowerCase() !== CONFIG.githubUsername.toLowerCase();
+    const authorName = isNotMainAuthor ? repo.owner.login : null;
+    
     card.innerHTML = `
       <span class="pc-icon">${icon}</span>
       <div class="pc-content">
@@ -500,6 +504,7 @@ function renderProjects(repos) {
           <span class="pc-name">${escapeHtml(repo.name)}</span>
           <span class="pc-badge">${badge}</span>
         </div>
+        ${authorName ? `<div class="pc-author">Par <a href="${repo.owner.html_url}" target="_blank" rel="noopener noreferrer" class="pc-author-link">${escapeHtml(authorName)}</a></div>` : ''}
         <div class="pc-desc">${escapeHtml(description)}</div>
         <div class="pc-meta">
           ${repo.language ? `<span class="pc-lang"><span class="pc-dot" style="background-color: ${langColor}"></span>${escapeHtml(repo.language)}</span>` : ''}

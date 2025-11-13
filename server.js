@@ -364,7 +364,12 @@ app.get('/github', async (req, res) => {
       updated_at: repo.updated_at,
       created_at: repo.created_at,
       private: repo.private,
-      default_branch: repo.default_branch
+      default_branch: repo.default_branch,
+      owner: {
+        login: repo.owner?.login || '',
+        html_url: repo.owner?.html_url || ''
+      },
+      fork: repo.fork || false
     }));
     
     const githubData = {

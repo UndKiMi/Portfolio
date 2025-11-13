@@ -548,6 +548,25 @@ header h1::after {
   border: 1px solid var(--border);
 }
 
+.pc-author {
+  font-size: 0.75em;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+
+.pc-author-link {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+  transition: var(--transition);
+}
+
+.pc-author-link:hover {
+  color: var(--primary-light);
+  text-decoration: underline;
+}
+
 .pc-desc {
   font-size: 0.85em;
   font-weight: 400;
@@ -735,9 +754,32 @@ header h1::after {
   margin-bottom: 15px;
 }
 
-.senscritique-titles h2,
-.senscritique-titles .sc-reviews-section-title {
+.senscritique-titles h2 {
   margin-bottom: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.senscritique-titles .sc-reviews-section-title {
+  text-decoration: none;
+  color: var(--text);
+  transition: var(--transition);
+  display: block;
+}
+
+.senscritique-titles .sc-reviews-section-title h2 {
+  margin-bottom: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: inherit;
+}
+
+.senscritique-titles .sc-reviews-section-title:hover {
+  color: var(--primary);
+}
+
+.senscritique-titles .sc-reviews-section-title::after {
+  display: none; /* Désactiver le soulignement par défaut, on utilise projects-heading-underline */
 }
 
 .senscritique-container {
