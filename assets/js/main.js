@@ -812,11 +812,37 @@ function displayRecentReviews(reviews, append = false) {
     const reviewItem = document.createElement('div');
     reviewItem.className = 'sc-review-item';
     
+    // Extraire et nettoyer le titre (IMPORTANT : nettoyer le HTML en premier)
+    const rawTitle = review.title || 'Sans titre';
+    const title = cleanHTML(rawTitle);
+    
+    // Extraire et formater la date
+    let dateText = 'non disponible';
+    if (review.created_at) {
+      dateText = formatReviewDate(review.created_at);
+    } else if (review.date_raw) {
+      const parsed = parseDateFromText(review.date_raw);
+      dateText = parsed ? formatReviewDate(parsed) : review.date_raw;
+    } else if (review.date) {
+      const parsed = parseDateFromText(review.date);
+      dateText = parsed ? formatReviewDate(parsed) : review.date;
+    }
+    
+    // Nettoyer aussi la date
+    const cleanDateText = cleanHTML(dateText);
+    
+    // Extraire la note
+    const rating = review.rating ? ` | ${review.rating}⭐` : '';
+    
+    // Extraire et nettoyer le contenu (IMPORTANT : nettoyer le HTML)
+    const rawContent = review.content || review.comment || 'Pas de commentaire';
+    const content = cleanHTML(rawContent);
+    
     // Image de l'œuvre (si disponible)
     if (review.image) {
       const imageEl = document.createElement('img');
       imageEl.src = review.image;
-      imageEl.alt = review.title || 'Critique';
+      imageEl.alt = title || 'Critique'; // Utiliser le titre nettoyé
       imageEl.className = 'sc-review-image';
       imageEl.loading = 'lazy';
       imageEl.onerror = function() {
@@ -832,32 +858,27 @@ function displayRecentReviews(reviews, append = false) {
     linkEl.rel = 'noopener noreferrer';
     linkEl.className = 'sc-review-content-wrapper';
     
-    // Extraire et formater la date
-    let dateText = 'non disponible';
-    if (review.created_at) {
-      dateText = formatReviewDate(review.created_at);
-    } else if (review.date_raw) {
-      const parsed = parseDateFromText(review.date_raw);
-      dateText = parsed ? formatReviewDate(parsed) : review.date_raw;
-    } else if (review.date) {
-      const parsed = parseDateFromText(review.date);
-      dateText = parsed ? formatReviewDate(parsed) : review.date;
-    }
+    // Créer les éléments DOM avec .textContent (pas .innerHTML)
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'sc-review-header';
     
-    // Extraire la note
-    const rating = review.rating ? ` | ${review.rating}⭐` : '';
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'sc-review-title';
+    titleDiv.textContent = title + rating; // Utiliser .textContent
     
-    // Extraire le contenu
-    const content = review.content || review.comment || 'Pas de commentaire';
+    const commentDiv = document.createElement('div');
+    commentDiv.className = 'sc-review-comment';
+    commentDiv.textContent = content; // Utiliser .textContent
     
-    // Créer le HTML de la critique
-    linkEl.innerHTML = `
-      <div class="sc-review-header">
-        <div class="sc-review-title">${escapeHtml(review.title)}${rating}</div>
-      </div>
-      <div class="sc-review-comment">${escapeHtml(content)}</div>
-      <div class="sc-review-date">${escapeHtml(dateText)}</div>
-    `;
+    const dateDiv = document.createElement('div');
+    dateDiv.className = 'sc-review-date';
+    dateDiv.textContent = cleanDateText; // Utiliser .textContent
+    
+    // Assembler la structure
+    headerDiv.appendChild(titleDiv);
+    linkEl.appendChild(headerDiv);
+    linkEl.appendChild(commentDiv);
+    linkEl.appendChild(dateDiv);
     
     reviewItem.appendChild(linkEl);
     fragment.appendChild(reviewItem);
@@ -928,6 +949,18 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+/**
+ * Nettoie le HTML d'un texte (supprime toutes les balises HTML)
+ */
+function cleanHTML(text) {
+  if (!text) return '';
+  // Supprimer toutes les balises HTML
+  let cleaned = text.replace(/<[^>]*>/g, '').trim();
+  // Nettoyer les espaces multiples
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  return cleaned;
 }
 
 function formatReviewDate(dateString) {
