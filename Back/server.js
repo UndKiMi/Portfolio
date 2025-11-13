@@ -25,6 +25,7 @@ app.use(cors({
     
     const allowedOrigins = [
       'https://undkimi.github.io',
+      'https://portfolio-ebon-two-49.vercel.app',
       'http://localhost:5173', // Vite dev server
     ];
     
