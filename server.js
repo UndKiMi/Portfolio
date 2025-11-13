@@ -23,8 +23,21 @@ app.disable('x-powered-by');
 // Compression gzip pour réduire la taille des réponses
 app.use(compression());
 
-// CORS
-app.use(cors());
+// CORS - Autoriser les requêtes depuis GitHub Pages
+app.use(cors({
+  origin: [
+    'https://undkimi.github.io',
+    'https://undkimi.github.io/Portfolio',
+    'https://undkimi.github.io/Portfolio/',
+    'http://localhost:3000',
+    'http://localhost:8080',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:8080'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // Cache HTTP amélioré pour les fichiers statiques
 app.use(express.static('.', { 
