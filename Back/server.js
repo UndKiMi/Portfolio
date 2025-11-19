@@ -27,6 +27,8 @@ app.use(cors({
       'https://undkimi.github.io',
       'https://portfolio-ebon-two-49.vercel.app',
       'https://qkimi.fr',
+      'http://sc4os480g8csw0cc8sow8g44.151.240.19.146.sslip.io',
+      'https://sc4os480g8csw0cc8sow8g44.151.240.19.146.sslip.io',
       'http://localhost:5173', // Vite dev server
     ];
     
