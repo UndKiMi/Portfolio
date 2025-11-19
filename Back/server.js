@@ -63,9 +63,11 @@ app.use(express.static('.', {
 
 // Route de santé (doit être avant les autres routes)
 app.get('/health', (req, res) => {
+  console.log('🏥 Health check appelé');
   res.status(200).json({
     status: 'OK',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
   });
 });
 

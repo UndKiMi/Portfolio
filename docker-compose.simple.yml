@@ -23,7 +23,7 @@ services:
       context: ./Front
       dockerfile: Dockerfile
       args:
-        VITE_BACKEND_URL: ${VITE_BACKEND_URL:-http://localhost:3000}
+        VITE_BACKEND_URL: ${VITE_BACKEND_URL:?https://your-backend-url.com}
     container_name: portfolio-frontend
     restart: unless-stopped
     ports:
