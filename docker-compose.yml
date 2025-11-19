@@ -12,14 +12,15 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-    env_file:
-      - ./Back/.env
+      - DISCORD_TOKEN=${DISCORD_TOKEN:?}
+      - DISCORD_USER_ID=${DISCORD_USER_ID:?}
+      - STATIC_MAX_AGE=${STATIC_MAX_AGE:-24h}
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     networks:
       - portfolio-network
 
@@ -28,7 +29,7 @@ services:
       context: ./Front
       dockerfile: Dockerfile
       args:
-        VITE_BACKEND_URL: ${VITE_BACKEND_URL:-http://localhost:3000}
+        VITE_BACKEND_URL: ${VITE_BACKEND_URL:?https://your-backend-url.com}
     container_name: portfolio-frontend
     restart: unless-stopped
     ports:

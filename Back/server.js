@@ -61,15 +61,25 @@ app.use(express.static('.', {
   }
 }));
 
-// Initialisation du bot Discord
+// Route de santé (doit être avant les autres routes)
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Initialisation du bot Discord (non-bloquant)
 let discordClient;
-try {
-  discordClient = initializeDiscord();
-  app.locals.discordClient = discordClient;
-} catch (error) {
-  console.error('❌ Erreur lors de l\'initialisation Discord:', error.message);
-  console.log('⚠️  Le serveur continuera sans Discord');
-}
+setImmediate(() => {
+  try {
+    discordClient = initializeDiscord();
+    app.locals.discordClient = discordClient;
+  } catch (error) {
+    console.error('❌ Erreur lors de l\'initialisation Discord:', error.message);
+    console.log('⚠️  Le serveur continuera sans Discord');
+  }
+});
 
 // Middleware pour partager les données Discord avec les routes
 app.use((req, res, next) => {
@@ -81,15 +91,6 @@ app.use((req, res, next) => {
 app.use('/', discordRoutes);
 app.use('/', githubRoutes);
 app.use('/', senscritiqueRoutes);
-
-// Route de santé
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    botReady: discordClient?.isReady() || false,
-    timestamp: new Date().toISOString()
-  });
-});
 
 // Démarrage du serveur
 app.listen(PORT, '0.0.0.0', () => {
