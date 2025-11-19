@@ -24,11 +24,11 @@ app.use(cors({
     if (!origin) return callback(null, true);
     
     const allowedOrigins = [
-      'https://undkimi.github.io',
-      'https://portfolio-ebon-two-49.vercel.app',
       'https://qkimi.fr',
       'http://sc4os480g8csw0cc8sow8g44.151.240.19.146.sslip.io',
-      'https://sc4os480g8csw0cc8sow8g44.151.240.19.146.sslip.io',
+      '44.151.240.19.146',
+      'http://qkimi.fr',
+      'qkimi.fr',
       'http://localhost:5173', // Vite dev server
     ];
     
